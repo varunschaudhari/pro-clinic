@@ -72,6 +72,13 @@ function computeTotals(items: ComputedItem[]) {
 const PATIENT_FIELDS = 'patientId name mobile gender dob age ageUnit';
 const CREATOR_FIELDS = 'name';
 
+// Rename populated `patientId` → `patient` so the frontend can use inv.patient.*
+function toResponse(doc: Record<string, unknown> | null) {
+  if (!doc) return doc;
+  const { patientId, ...rest } = doc;
+  return { ...rest, patient: patientId };
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export class InvoiceService {
@@ -115,10 +122,11 @@ export class InvoiceService {
       termsAndConditions: input.termsAndConditions,
     });
 
-    return Invoice.findById(invoice._id)
+    const created = await Invoice.findById(invoice._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('createdBy', CREATOR_FIELDS)
       .lean();
+    return toResponse(created as Record<string, unknown> | null);
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
@@ -153,7 +161,8 @@ export class InvoiceService {
       .limit(params.limit)
       .lean();
 
-    return { data, total, page: params.page, limit: params.limit, totalPages, hasNext: params.page < totalPages, hasPrev: params.page > 1 };
+    const transformed = data.map((d) => toResponse(d as Record<string, unknown>));
+    return { data: transformed, total, page: params.page, limit: params.limit, totalPages, hasNext: params.page < totalPages, hasPrev: params.page > 1 };
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -199,7 +208,7 @@ export class InvoiceService {
       .populate('createdBy', CREATOR_FIELDS)
       .lean();
     if (!inv) throw ApiError.notFound('Invoice not found');
-    return inv;
+    return toResponse(inv as Record<string, unknown>);
   }
 
   // ── Record payment ────────────────────────────────────────────────────────
@@ -230,10 +239,11 @@ export class InvoiceService {
 
     await inv.save(); // pre-save hook updates paidAmount, balanceAmount, paymentStatus
 
-    return Invoice.findById(inv._id)
+    const updated = await Invoice.findById(inv._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('createdBy', CREATOR_FIELDS)
       .lean();
+    return toResponse(updated as Record<string, unknown> | null);
   }
 
   // ── Cancel ────────────────────────────────────────────────────────────────
@@ -258,7 +268,11 @@ export class InvoiceService {
     inv.cancelledBy         = userId;
     await inv.save();
 
-    return inv.toJSON();
+    const cancelled = await Invoice.findById(inv._id)
+      .populate('patientId', PATIENT_FIELDS)
+      .populate('createdBy', CREATOR_FIELDS)
+      .lean();
+    return toResponse(cancelled as Record<string, unknown> | null);
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────

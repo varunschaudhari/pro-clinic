@@ -13,6 +13,12 @@ import type {
 const PATIENT_FIELDS  = 'patientId name mobile gender dob age ageUnit';
 const DOCTOR_FIELDS   = 'name';
 
+function toResponse(doc: Record<string, unknown> | null) {
+  if (!doc) return doc;
+  const { patientId, ...rest } = doc;
+  return { ...rest, patient: patientId };
+}
+
 // Valid forward-only status transitions
 const TRANSITIONS: Record<string, string[]> = {
   ordered:          ['sample_collected', 'cancelled'],
@@ -57,10 +63,11 @@ export class LabReportService {
       status:            input.status ?? 'ordered',
     });
 
-    return LabReport.findById(report._id)
+    const created = await LabReport.findById(report._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('orderedBy', DOCTOR_FIELDS)
       .lean();
+    return toResponse(created as Record<string, unknown> | null);
   }
 
   // ── List ───────────────────────────────────────────────────────────────────
@@ -91,7 +98,8 @@ export class LabReportService {
       .limit(params.limit)
       .lean();
 
-    return { data, total, page: params.page, limit: params.limit, totalPages, hasNext: params.page < totalPages, hasPrev: params.page > 1 };
+    const transformed = data.map((d) => toResponse(d as Record<string, unknown>));
+    return { data: transformed, total, page: params.page, limit: params.limit, totalPages, hasNext: params.page < totalPages, hasPrev: params.page > 1 };
   }
 
   // ── Get single ─────────────────────────────────────────────────────────────
@@ -109,11 +117,12 @@ export class LabReportService {
 
     if (!report) throw ApiError.notFound('Lab report not found');
 
-    if (userRole === 'Doctor' && !(report.orderedBy as Types.ObjectId).equals(userId)) {
-      throw ApiError.forbidden('Access denied');
+    if (userRole === 'Doctor') {
+      const orderedById = (report.orderedBy as unknown as { _id: Types.ObjectId })._id;
+      if (!orderedById.equals(userId)) throw ApiError.forbidden('Access denied');
     }
 
-    return report;
+    return toResponse(report as Record<string, unknown>);
   }
 
   // ── Update ─────────────────────────────────────────────────────────────────
@@ -141,10 +150,11 @@ export class LabReportService {
     Object.assign(report, updates);
     await report.save();
 
-    return LabReport.findById(report._id)
+    const updated = await LabReport.findById(report._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('orderedBy', DOCTOR_FIELDS)
       .lean();
+    return toResponse(updated as Record<string, unknown> | null);
   }
 
   // ── Update status ──────────────────────────────────────────────────────────
@@ -178,10 +188,11 @@ export class LabReportService {
 
     await report.save();
 
-    return LabReport.findById(report._id)
+    const status = await LabReport.findById(report._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('orderedBy', DOCTOR_FIELDS)
       .lean();
+    return toResponse(status as Record<string, unknown> | null);
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────

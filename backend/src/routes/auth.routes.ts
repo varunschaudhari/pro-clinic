@@ -10,6 +10,8 @@ import {
   getMe,
   changePassword,
   updateProfile,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/authenticate';
 import { tenantResolver } from '../middleware/tenantResolver';
@@ -22,6 +24,8 @@ import {
   acceptInviteSchema,
   changePasswordSchema,
   updateProfileSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from '../utils/validators/auth.validator';
 import { ROLES } from '../constants';
 
@@ -36,10 +40,12 @@ const authLimiter = rateLimit({
 });
 
 // ── Public ──────────────────────────────────────────────
-router.post('/register', authLimiter, validate(clinicRegistrationSchema), registerClinic);
-router.post('/login', authLimiter, validate(loginSchema), login);
-router.post('/refresh', refreshToken);
-router.post('/invite/accept', validate(acceptInviteSchema), acceptInvite);
+router.post('/register',        authLimiter, validate(clinicRegistrationSchema), registerClinic);
+router.post('/login',           authLimiter, validate(loginSchema), login);
+router.post('/refresh',         refreshToken);
+router.post('/invite/accept',   validate(acceptInviteSchema), acceptInvite);
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), forgotPassword);
+router.post('/reset-password',  authLimiter, validate(resetPasswordSchema),  resetPassword);
 
 // ── Authenticated ────────────────────────────────────────
 router.use(authenticate);

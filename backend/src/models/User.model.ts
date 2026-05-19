@@ -26,6 +26,9 @@ export interface IUser extends Document {
   inviteTokenExpiresAt?: Date;
   isInviteAccepted: boolean;
 
+  passwordResetToken?: string;
+  passwordResetTokenExpiresAt?: Date;
+
   lastLoginAt?: Date;
   loginAttempts: number;
   lockUntil?: Date;
@@ -82,6 +85,9 @@ const UserSchema = new Schema<IUser>(
 
     inviteToken: { type: String, select: false },
     inviteTokenExpiresAt: { type: Date, select: false },
+
+    passwordResetToken:           { type: String, select: false },
+    passwordResetTokenExpiresAt:  { type: Date,   select: false },
     isInviteAccepted: { type: Boolean, default: false },
 
     lastLoginAt: { type: Date },

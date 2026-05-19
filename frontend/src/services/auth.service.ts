@@ -117,6 +117,12 @@ export const authApi = {
 
   updateProfile: (data: UpdateProfilePayload) =>
     api.put<ApiResponse<AuthUser>>('/auth/profile', data),
+
+  forgotPassword: (email: string) =>
+    api.post<ApiResponse<null>>('/auth/forgot-password', { email }),
+
+  resetPassword: (data: { token: string; password: string; confirmPassword: string }) =>
+    api.post<ApiResponse<null>>('/auth/reset-password', data),
 };
 
 export const usersApi = {

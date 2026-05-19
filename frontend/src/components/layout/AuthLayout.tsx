@@ -12,7 +12,7 @@ export const AuthLayout = ({ redirectTo = '/' }: AuthLayoutProps) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-emerald-50">
         <Spinner size="lg" />
       </div>
     );
@@ -22,7 +22,7 @@ export const AuthLayout = ({ redirectTo = '/' }: AuthLayoutProps) => {
   if (isAuthenticated) return <Navigate to={redirectTo} replace />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-emerald-50 flex flex-col">
       {/* Top bar */}
       <header className="px-6 py-4">
         <div className="flex items-center gap-2">

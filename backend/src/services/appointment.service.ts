@@ -29,6 +29,12 @@ const PATIENT_FIELDS = 'patientId name mobile gender dob age ageUnit';
 const DOCTOR_FIELDS  = 'name';
 const CREATOR_FIELDS = 'name role';
 
+function toResponse(doc: Record<string, unknown> | null) {
+  if (!doc) return doc;
+  const { patientId, doctorId, ...rest } = doc;
+  return { ...rest, patient: patientId, doctor: doctorId };
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 function dayRange(dateStr: string) {
@@ -115,11 +121,12 @@ export class AppointmentService {
       status:         'scheduled',
     });
 
-    return Appointment.findById(appt._id)
+    const created = await Appointment.findById(appt._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('doctorId', DOCTOR_FIELDS)
       .populate('createdBy', CREATOR_FIELDS)
       .lean();
+    return toResponse(created as Record<string, unknown> | null);
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
@@ -158,7 +165,7 @@ export class AppointmentService {
       .lean();
 
     return {
-      data,
+      data: data.map((d) => toResponse(d as Record<string, unknown>)),
       total,
       page: params.page,
       limit: params.limit,
@@ -184,11 +191,12 @@ export class AppointmentService {
 
     if (!appt) throw ApiError.notFound('Appointment not found');
 
-    if (userRole === 'Doctor' && !(appt.doctorId as Types.ObjectId).equals(userId)) {
-      throw ApiError.forbidden('Access denied');
+    if (userRole === 'Doctor') {
+      const docId = (appt.doctorId as unknown as { _id: Types.ObjectId })._id;
+      if (!docId.equals(userId)) throw ApiError.forbidden('Access denied');
     }
 
-    return appt;
+    return toResponse(appt as Record<string, unknown>);
   }
 
   // ── Update status ────────────────────────────────────────────────────────
@@ -235,10 +243,11 @@ export class AppointmentService {
       });
     }
 
-    return Appointment.findById(appt._id)
+    const updated = await Appointment.findById(appt._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('doctorId', DOCTOR_FIELDS)
       .lean();
+    return toResponse(updated as Record<string, unknown> | null);
   }
 
   // ── Soft delete ───────────────────────────────────────────────────────────

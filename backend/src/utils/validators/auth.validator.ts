@@ -79,6 +79,19 @@ export const updateProfileSchema = z.object({
   qualifications: z.array(z.string().trim()).optional(),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email('Enter a valid email address').toLowerCase(),
+});
+
+export const resetPasswordSchema = z.object({
+  token:    z.string().trim().min(1, 'Reset token is required'),
+  password: passwordSchema,
+  confirmPassword: z.string(),
+}).refine((d) => d.password === d.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+});
+
 export type ClinicRegistrationInput = z.infer<typeof clinicRegistrationSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;

@@ -6,9 +6,11 @@ import { PageLoader } from '@/components/ui/Spinner';
 import { ProtectedRoute } from './ProtectedRoute';
 
 // ── Auth pages (public) ─────────────────────────────────────
-const LoginPage        = lazy(() => import('@/pages/auth/LoginPage'));
-const RegisterPage     = lazy(() => import('@/pages/auth/RegisterPage'));
-const AcceptInvitePage = lazy(() => import('@/pages/auth/AcceptInvitePage'));
+const LoginPage          = lazy(() => import('@/pages/auth/LoginPage'));
+const RegisterPage       = lazy(() => import('@/pages/auth/RegisterPage'));
+const AcceptInvitePage   = lazy(() => import('@/pages/auth/AcceptInvitePage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage  = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 
 // ── App pages (protected) ───────────────────────────────────
 const DashboardPage      = lazy(() => import('@/pages/dashboard/DashboardPage'));
@@ -52,9 +54,11 @@ const router = createBrowserRouter([
   {
     element: <AuthLayout />,
     children: [
-      { path: '/login',          element: wrap(<LoginPage />) },
-      { path: '/register',       element: wrap(<RegisterPage />) },
-      { path: '/invite/accept',  element: wrap(<AcceptInvitePage />) },
+      { path: '/login',             element: wrap(<LoginPage />) },
+      { path: '/register',          element: wrap(<RegisterPage />) },
+      { path: '/invite/accept',     element: wrap(<AcceptInvitePage />) },
+      { path: '/forgot-password',   element: wrap(<ForgotPasswordPage />) },
+      { path: '/reset-password',    element: wrap(<ResetPasswordPage />) },
     ],
   },
 

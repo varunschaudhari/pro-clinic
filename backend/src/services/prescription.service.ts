@@ -13,6 +13,12 @@ import type {
 const PATIENT_FIELDS = 'patientId name mobile gender dob age ageUnit';
 const DOCTOR_FIELDS  = 'name';
 
+function toResponse(doc: Record<string, unknown> | null) {
+  if (!doc) return doc;
+  const { patientId, doctorId, ...rest } = doc;
+  return { ...rest, patient: patientId, doctor: doctorId };
+}
+
 export class PrescriptionService {
   // ── Create ────────────────────────────────────────────────────────────────
 
@@ -54,10 +60,11 @@ export class PrescriptionService {
     // Link back to appointment
     await Appointment.findByIdAndUpdate(appointment._id, { prescriptionId: rx._id });
 
-    return Prescription.findById(rx._id)
+    const created = await Prescription.findById(rx._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('doctorId', DOCTOR_FIELDS)
       .lean();
+    return toResponse(created as Record<string, unknown> | null);
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
@@ -92,7 +99,7 @@ export class PrescriptionService {
       .lean();
 
     return {
-      data,
+      data: data.map((d) => toResponse(d as Record<string, unknown>)),
       total,
       page: params.page,
       limit: params.limit,
@@ -117,11 +124,12 @@ export class PrescriptionService {
 
     if (!rx) throw ApiError.notFound('Prescription not found');
 
-    if (userRole === 'Doctor' && !(rx.doctorId as Types.ObjectId).equals(userId)) {
-      throw ApiError.forbidden('Access denied');
+    if (userRole === 'Doctor') {
+      const docId = (rx.doctorId as unknown as { _id: Types.ObjectId })._id;
+      if (!docId.equals(userId)) throw ApiError.forbidden('Access denied');
     }
 
-    return rx;
+    return toResponse(rx as Record<string, unknown>);
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
@@ -147,10 +155,11 @@ export class PrescriptionService {
     Object.assign(rx, updates);
     await rx.save();
 
-    return Prescription.findById(rx._id)
+    const updated = await Prescription.findById(rx._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('doctorId', DOCTOR_FIELDS)
       .lean();
+    return toResponse(updated as Record<string, unknown> | null);
   }
 
   // ── Record print ──────────────────────────────────────────────────────────
