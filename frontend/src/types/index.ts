@@ -11,6 +11,11 @@ export interface AuthUser {
   email?: string;
   avatarUrl?: string;
   clinicName?: string | null;
+  bio?: string;
+  specialization?: string;
+  licenseNumber?: string;
+  consultationFee?: number;
+  qualifications?: string[];
 }
 
 export interface Clinic {

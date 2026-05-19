@@ -50,10 +50,10 @@ export default function ProfilePage() {
     defaultValues: {
       name: user?.name ?? '',
       email: user?.email ?? '',
-      bio: (user as any)?.bio ?? '',
-      specialization: (user as any)?.specialization ?? '',
-      licenseNumber: (user as any)?.licenseNumber ?? '',
-      consultationFee: (user as any)?.consultationFee ?? undefined,
+      bio: user?.bio ?? '',
+      specialization: user?.specialization ?? '',
+      licenseNumber: user?.licenseNumber ?? '',
+      consultationFee: user?.consultationFee ?? undefined,
     },
   });
 

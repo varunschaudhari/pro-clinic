@@ -300,6 +300,20 @@ export class AuthService {
       clinicName = clinic?.name ?? null;
     }
 
-    return { ...user, clinicName };
+    return {
+      id:              (user._id as Types.ObjectId).toString(),
+      name:            user.name,
+      role:            user.role,
+      clinicId:        user.clinicId?.toString() ?? null,
+      mobile:          user.mobile,
+      email:           user.email,
+      avatarUrl:       user.avatarUrl,
+      clinicName,
+      bio:             user.bio,
+      specialization:  user.specialization,
+      licenseNumber:   user.licenseNumber,
+      consultationFee: user.consultationFee,
+      qualifications:  user.qualifications,
+    };
   }
 }

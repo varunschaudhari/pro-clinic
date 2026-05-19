@@ -18,16 +18,22 @@ export const AuthInitializer = ({ children }: { children: React.ReactNode }) => 
       .getMe()
       .then((res) => {
         if (!cancelled) {
+          const d = res.data.data;
           dispatch(
             setCredentials({
-              id: res.data.data.id,
-              name: res.data.data.name,
-              role: res.data.data.role,
-              clinicId: res.data.data.clinicId,
-              mobile: res.data.data.mobile,
-              email: res.data.data.email,
-              avatarUrl: res.data.data.avatarUrl,
-              clinicName: res.data.data.clinicName,
+              id: d.id,
+              name: d.name,
+              role: d.role,
+              clinicId: d.clinicId,
+              mobile: d.mobile,
+              email: d.email,
+              avatarUrl: d.avatarUrl,
+              clinicName: d.clinicName,
+              bio: d.bio,
+              specialization: d.specialization,
+              licenseNumber: d.licenseNumber,
+              consultationFee: d.consultationFee,
+              qualifications: d.qualifications,
             })
           );
           // Fetch full clinic data for print views and settings
