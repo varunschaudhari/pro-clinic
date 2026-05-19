@@ -5,7 +5,7 @@ import { Appointment }    from '../models/Appointment.model';
 import { User }           from '../models/User.model';
 import { ApiError }       from '../utils/ApiError';
 import { ROLES }          from '../constants';
-import type { UpsertScheduleInput, AddLeaveInput } from '../utils/validators/schedule.validator';
+import type { UpsertScheduleInput, AddLeaveInput, AddLeaveRangeInput } from '../utils/validators/schedule.validator';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -84,7 +84,7 @@ export class ScheduleService {
     const cid = new Types.ObjectId(clinicId);
     const did = new Types.ObjectId(doctorId);
 
-    const dayOfWeek = new Date(date).getDay();
+    const dayOfWeek = new Date(date + 'T12:00:00').getDay();
 
     const daySchedule = await DoctorSchedule.findOne({
       clinicId: cid,
@@ -182,19 +182,117 @@ export class ScheduleService {
     clinicId: string,
     doctorId: string,
     input: AddLeaveInput,
-    createdBy: string
+    actingUserId: string,
+    actingUserRole: string
   ) {
     await ScheduleService.assertDoctor(clinicId, doctorId);
-    return DoctorLeave.create({
-      clinicId:  new Types.ObjectId(clinicId),
-      doctorId:  new Types.ObjectId(doctorId),
-      createdBy: new Types.ObjectId(createdBy),
+
+    // Doctors can only add leave for themselves
+    if (actingUserRole === ROLES.DOCTOR && actingUserId !== doctorId) {
+      throw ApiError.forbidden('Doctors can only add leave for themselves');
+    }
+
+    const cid = new Types.ObjectId(clinicId);
+    const did = new Types.ObjectId(doctorId);
+
+    // Prevent duplicate full-day leave on same date
+    if (input.isFullDay) {
+      const existing = await DoctorLeave.findOne({ clinicId: cid, doctorId: did, date: input.date, isFullDay: true }).lean();
+      if (existing) throw ApiError.conflict('A full-day leave already exists for this date');
+    } else {
+      // Prevent overlapping partial leaves
+      const partials = await DoctorLeave.find({ clinicId: cid, doctorId: did, date: input.date, isFullDay: false }).lean();
+      const hasOverlap = partials.some(
+        (l) => l.startTime && l.endTime && input.startTime && input.endTime &&
+               overlaps(input.startTime, input.endTime, l.startTime, l.endTime)
+      );
+      if (hasOverlap) throw ApiError.conflict('Leave time overlaps with an existing partial-day leave');
+
+      // Also block if full-day leave already exists for this date
+      const fullDay = await DoctorLeave.findOne({ clinicId: cid, doctorId: did, date: input.date, isFullDay: true }).lean();
+      if (fullDay) throw ApiError.conflict('A full-day leave already exists for this date');
+    }
+
+    // Warn about existing appointments (non-blocking — return flag in response)
+    const hasConflict = await Appointment.exists({
+      clinicId: cid,
+      doctorId: did,
+      appointmentDate: new Date(input.date + 'T12:00:00'),
+      status: { $nin: ['cancelled', 'no_show'] },
+    });
+
+    const leave = await DoctorLeave.create({
+      clinicId:  cid,
+      doctorId:  did,
+      createdBy: new Types.ObjectId(actingUserId),
       ...input,
     });
+
+    return { leave, hasConflict: !!hasConflict };
   }
 
-  static async deleteLeave(clinicId: string, doctorId: string, leaveId: string) {
+  static async addLeaveRange(
+    clinicId: string,
+    doctorId: string,
+    input: AddLeaveRangeInput,
+    actingUserId: string,
+    actingUserRole: string
+  ) {
     await ScheduleService.assertDoctor(clinicId, doctorId);
+
+    if (actingUserRole === ROLES.DOCTOR && actingUserId !== doctorId) {
+      throw ApiError.forbidden('Doctors can only add leave for themselves');
+    }
+
+    const cid = new Types.ObjectId(clinicId);
+    const did = new Types.ObjectId(doctorId);
+    const uid = new Types.ObjectId(actingUserId);
+
+    // Collect all dates in range
+    const dates: string[] = [];
+    const cursor = new Date(input.startDate + 'T12:00:00');
+    const end    = new Date(input.endDate   + 'T12:00:00');
+    while (cursor <= end) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // Skip dates that already have a full-day leave
+    const existing = await DoctorLeave.find({ clinicId: cid, doctorId: did, date: { $in: dates }, isFullDay: true }).lean();
+    const existingDates = new Set(existing.map((l) => l.date));
+    const toCreate = dates.filter((d) => !existingDates.has(d));
+
+    if (toCreate.length === 0) throw ApiError.conflict('All dates in the range already have full-day leave');
+
+    const docs = toCreate.map((date) => ({
+      clinicId: cid,
+      doctorId: did,
+      createdBy: uid,
+      date,
+      isFullDay: true,
+      reason: input.reason,
+    }));
+
+    await DoctorLeave.insertMany(docs);
+
+    const hasConflict = await Appointment.exists({
+      clinicId: cid,
+      doctorId: did,
+      appointmentDate: { $gte: new Date(input.startDate + 'T00:00:00'), $lte: new Date(input.endDate + 'T23:59:59') },
+      status: { $nin: ['cancelled', 'no_show'] },
+    });
+
+    return { created: toCreate.length, skipped: existingDates.size, hasConflict: !!hasConflict };
+  }
+
+  static async deleteLeave(clinicId: string, doctorId: string, leaveId: string, actingUserId: string, actingUserRole: string) {
+    await ScheduleService.assertDoctor(clinicId, doctorId);
+
+    // Doctors can only delete their own leaves
+    if (actingUserRole === ROLES.DOCTOR && actingUserId !== doctorId) {
+      throw ApiError.forbidden('Doctors can only delete their own leave entries');
+    }
+
     const leave = await DoctorLeave.findOneAndDelete({
       _id:      new Types.ObjectId(leaveId),
       clinicId: new Types.ObjectId(clinicId),

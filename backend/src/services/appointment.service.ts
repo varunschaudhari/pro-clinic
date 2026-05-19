@@ -8,6 +8,7 @@ import { ScheduleService } from './schedule.service';
 import type { IPaginatedResponse } from '../types';
 import type {
   CreateAppointmentInput,
+  UpdateAppointmentInput,
   UpdateStatusInput,
   ListAppointmentsInput,
 } from '../utils/validators/appointment.validator';
@@ -246,6 +247,78 @@ export class AppointmentService {
     const updated = await Appointment.findById(appt._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('doctorId', DOCTOR_FIELDS)
+      .lean();
+    return toResponse(updated as Record<string, unknown> | null);
+  }
+
+  // ── Update ───────────────────────────────────────────────────────────────
+
+  static async updateAppointment(
+    clinicId: Types.ObjectId,
+    appointmentId: string,
+    input: UpdateAppointmentInput,
+    userId: Types.ObjectId,
+    userRole: string
+  ) {
+    const appt = await Appointment.findOne({ _id: appointmentId, clinicId, isDeleted: false });
+    if (!appt) throw ApiError.notFound('Appointment not found');
+
+    // Only allow edits for pending appointments
+    if (['completed', 'cancelled', 'no_show', 'in_progress'].includes(appt.status)) {
+      throw ApiError.badRequest(`Cannot edit a ${appt.status} appointment`);
+    }
+
+    if (userRole === 'Doctor' && !appt.doctorId.equals(userId)) {
+      throw ApiError.forbidden('Access denied');
+    }
+
+    const doctorId    = input.doctorId ? new Types.ObjectId(input.doctorId) : appt.doctorId;
+    const dateStr     = input.appointmentDate ?? appt.appointmentDate.toISOString().slice(0, 10);
+    const mode        = input.mode ?? appt.mode;
+    const newSlotStart = 'slotStart' in input ? input.slotStart : undefined;
+
+    // Validate new doctor if changing
+    if (input.doctorId && !doctorId.equals(appt.doctorId)) {
+      const doctor = await User.findOne({ _id: doctorId, clinicId, role: 'Doctor', isDeleted: false }).lean();
+      if (!doctor) throw ApiError.notFound('Doctor not found in this clinic');
+    }
+
+    // Validate slot if a new slot is being set for a non-walkin mode
+    if (mode !== 'walkin' && newSlotStart) {
+      const availability = await ScheduleService.getAvailability(
+        clinicId.toString(),
+        doctorId.toString(),
+        dateStr
+      );
+      if (!availability.available) {
+        const reason = availability.reason === 'on_leave'
+          ? 'Doctor is on leave for this date'
+          : 'Doctor has no schedule for this day';
+        throw ApiError.badRequest(reason);
+      }
+      const slot = (availability.slots as any[]).find((s) => s.slotStart === newSlotStart);
+      if (!slot) throw ApiError.badRequest('Selected time slot does not exist in the doctor\'s schedule');
+      if (!slot.available) {
+        const msg = slot.reason === 'full' ? 'This slot is fully booked' : 'This slot is not available';
+        throw ApiError.badRequest(msg);
+      }
+    }
+
+    if (input.doctorId)        appt.doctorId        = doctorId;
+    if (input.appointmentDate) appt.appointmentDate = new Date(`${dateStr}T00:00:00.000Z`);
+    if (input.mode)            appt.mode            = input.mode;
+    if (input.visitType)       appt.visitType       = input.visitType;
+    if ('slotStart' in input)  appt.slotStart       = input.slotStart ?? appt.slotStart;
+    if ('slotEnd'   in input)  appt.slotEnd         = input.slotEnd   ?? appt.slotEnd;
+    if ('chiefComplaint' in input) appt.chiefComplaint = input.chiefComplaint;
+    if ('notes'          in input) appt.notes          = input.notes;
+
+    await appt.save();
+
+    const updated = await Appointment.findById(appt._id)
+      .populate('patientId', PATIENT_FIELDS)
+      .populate('doctorId', DOCTOR_FIELDS)
+      .populate('createdBy', CREATOR_FIELDS)
       .lean();
     return toResponse(updated as Record<string, unknown> | null);
   }

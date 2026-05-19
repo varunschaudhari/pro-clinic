@@ -15,6 +15,7 @@ import {
   stockOut,
   dispense,
   getTransactions,
+  getAllTransactions,
 } from '../controllers/pharmacy.controller';
 
 const router = Router();
@@ -22,7 +23,8 @@ const router = Router();
 router.use(authenticate, tenantResolver);
 
 // ── Static routes first (before /:id) ─────────────────────────────────────────
-router.get('/stats',    getStats);
+router.get('/stats',        getStats);
+router.get('/transactions', getAllTransactions);
 router.post('/dispense', roleGuard('ClinicAdmin', 'Pharmacist', 'Doctor'), dispense);
 
 // ── Collection ────────────────────────────────────────────────────────────────

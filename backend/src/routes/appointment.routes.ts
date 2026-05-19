@@ -5,6 +5,7 @@ import { roleGuard } from '../middleware/roleGuard';
 import { validate } from '../middleware/validate';
 import {
   createAppointmentSchema,
+  updateAppointmentSchema,
   updateStatusSchema,
 } from '../utils/validators/appointment.validator';
 import {
@@ -12,6 +13,7 @@ import {
   getTodayStats,
   createAppointment,
   getAppointmentById,
+  updateAppointment,
   updateStatus,
   deleteAppointment,
 } from '../controllers/appointment.controller';
@@ -34,6 +36,13 @@ router.post(
 
 // ── Resource routes ───────────────────────────────────────────────────────────
 router.get('/:id', getAppointmentById);
+
+router.patch(
+  '/:id',
+  roleGuard('ClinicAdmin', 'Receptionist', 'Doctor'),
+  validate(updateAppointmentSchema),
+  updateAppointment
+);
 
 router.patch(
   '/:id/status',

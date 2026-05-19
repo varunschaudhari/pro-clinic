@@ -357,7 +357,7 @@ export class PharmacyService {
     return drug;
   }
 
-  // ── Transaction History ───────────────────────────────────────────────────
+  // ── Transaction History (per drug) ───────────────────────────────────────
 
   static async getTransactions(
     clinicId: string,
@@ -380,6 +380,60 @@ export class PharmacyService {
         .lean(),
       StockTransaction.countDocuments(filter),
     ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      hasNext: page * limit < total,
+      hasPrev: page > 1,
+    };
+  }
+
+  // ── Global Transaction Ledger (all drugs) ─────────────────────────────────
+
+  static async getAllTransactions(
+    clinicId: string,
+    params: {
+      page: number;
+      limit: number;
+      type?: string;
+      drugId?: string;
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<IPaginatedResponse<any>> {
+    const { page, limit } = params;
+    const filter: Record<string, unknown> = { clinicId: new Types.ObjectId(clinicId) };
+
+    if (params.type)   filter.type   = params.type;
+    if (params.drugId) filter.drugId = new Types.ObjectId(params.drugId);
+
+    if (params.startDate || params.endDate) {
+      const dateFilter: Record<string, Date> = {};
+      if (params.startDate) dateFilter.$gte = new Date(`${params.startDate}T00:00:00.000Z`);
+      if (params.endDate)   dateFilter.$lte = new Date(`${params.endDate}T23:59:59.999Z`);
+      filter.createdAt = dateFilter;
+    }
+
+    const [raw, total] = await Promise.all([
+      StockTransaction.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('drugId', 'name unit')
+        .populate('createdBy', 'name')
+        .lean(),
+      StockTransaction.countDocuments(filter),
+    ]);
+
+    const data = raw.map((t: any) => ({
+      ...t,
+      drug:   t.drugId,
+      drugId: t.drugId?._id,
+    }));
 
     return {
       data,

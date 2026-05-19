@@ -5,6 +5,7 @@ import { asyncHandler }    from '../utils/asyncHandler';
 import {
   upsertScheduleSchema,
   addLeaveSchema,
+  addLeaveRangeSchema,
   availabilityQuerySchema,
 } from '../utils/validators/schedule.validator';
 
@@ -67,20 +68,43 @@ export const addLeave = asyncHandler(async (req: Request, res: Response) => {
     const errors = parsed.error.errors.map((e) => ({ field: e.path.join('.'), message: e.message }));
     return res.status(422).json({ success: false, message: 'Validation failed', errors });
   }
-  const leave = await ScheduleService.addLeave(
+  const result = await ScheduleService.addLeave(
     req.clinicId!.toString(),
     req.params.doctorId,
     parsed.data,
-    req.user!.userId.toString()
+    req.user!.userId.toString(),
+    req.user!.role
   );
-  return ApiResponse.created(res, leave, 'Leave added');
+  return ApiResponse.created(res, result, result.hasConflict
+    ? 'Leave added — note: existing appointments exist on this date'
+    : 'Leave added');
+});
+
+export const addLeaveRange = asyncHandler(async (req: Request, res: Response) => {
+  const parsed = addLeaveRangeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const errors = parsed.error.errors.map((e) => ({ field: e.path.join('.'), message: e.message }));
+    return res.status(422).json({ success: false, message: 'Validation failed', errors });
+  }
+  const result = await ScheduleService.addLeaveRange(
+    req.clinicId!.toString(),
+    req.params.doctorId,
+    parsed.data,
+    req.user!.userId.toString(),
+    req.user!.role
+  );
+  return ApiResponse.created(res, result, result.hasConflict
+    ? `${result.created} leave days added — note: existing appointments exist in this range`
+    : `${result.created} leave days added`);
 });
 
 export const deleteLeave = asyncHandler(async (req: Request, res: Response) => {
   await ScheduleService.deleteLeave(
     req.clinicId!.toString(),
     req.params.doctorId,
-    req.params.leaveId
+    req.params.leaveId,
+    req.user!.userId.toString(),
+    req.user!.role
   );
   return ApiResponse.noContent(res);
 });

@@ -81,3 +81,18 @@ export const getTransactions = asyncHandler(async (req: Request, res: Response) 
   const result = await PharmacyService.getTransactions(req.clinicId!.toString(), req.params.id, { page, limit, type });
   return ApiResponse.paginated(res, result);
 });
+
+export const getAllTransactions = asyncHandler(async (req: Request, res: Response) => {
+  const page      = Math.max(1, parseInt(req.query.page  as string) || 1);
+  const limit     = Math.min(100, parseInt(req.query.limit as string) || 30);
+  const type      = (req.query.type      as string) || undefined;
+  const drugId    = (req.query.drugId    as string) || undefined;
+  const startDate = (req.query.startDate as string) || undefined;
+  const endDate   = (req.query.endDate   as string) || undefined;
+
+  const result = await PharmacyService.getAllTransactions(
+    req.clinicId!.toString(),
+    { page, limit, type, drugId, startDate, endDate }
+  );
+  return ApiResponse.paginated(res, result);
+});

@@ -22,6 +22,7 @@ const EditPatientPage       = lazy(() => import('@/pages/patients/EditPatientPag
 const PatientDetailPage     = lazy(() => import('@/pages/patients/PatientDetailPage'));
 const AppointmentsPage      = lazy(() => import('@/pages/appointments/AppointmentsPage'));
 const NewAppointmentPage    = lazy(() => import('@/pages/appointments/NewAppointmentPage'));
+const EditAppointmentPage   = lazy(() => import('@/pages/appointments/AppointmentEditPage'));
 const PrescriptionsPage     = lazy(() => import('@/pages/prescriptions/PrescriptionsPage'));
 const NewPrescriptionPage   = lazy(() => import('@/pages/prescriptions/NewPrescriptionPage'));
 const EditPrescriptionPage  = lazy(() => import('@/pages/prescriptions/EditPrescriptionPage'));
@@ -37,6 +38,7 @@ const PharmacyPage           = lazy(() => import('@/pages/pharmacy/PharmacyPage'
 const NewDrugPage            = lazy(() => import('@/pages/pharmacy/NewDrugPage'));
 const EditDrugPage           = lazy(() => import('@/pages/pharmacy/EditDrugPage'));
 const DrugDetailPage         = lazy(() => import('@/pages/pharmacy/DrugDetailPage'));
+const PharmacyLedgerPage     = lazy(() => import('@/pages/pharmacy/PharmacyLedgerPage'));
 const SettingsPage              = lazy(() => import('@/pages/settings/SettingsPage'));
 const ReportsPage               = lazy(() => import('@/pages/reports/ReportsPage'));
 const ScheduleManagementPage    = lazy(() => import('@/pages/schedule/ScheduleManagementPage'));
@@ -76,8 +78,9 @@ const router = createBrowserRouter([
           { path: '/patients/new',                element: wrap(<NewPatientPage />) },
           { path: '/patients/:patientId',         element: wrap(<PatientDetailPage />) },
           { path: '/patients/:patientId/edit',    element: wrap(<EditPatientPage />) },
-          { path: '/appointments',     element: wrap(<AppointmentsPage />) },
-          { path: '/appointments/new', element: wrap(<NewAppointmentPage />) },
+          { path: '/appointments',          element: wrap(<AppointmentsPage />) },
+          { path: '/appointments/new',      element: wrap(<NewAppointmentPage />) },
+          { path: '/appointments/:id/edit', element: wrap(<EditAppointmentPage />) },
           { path: '/prescriptions',              element: wrap(<PrescriptionsPage />) },
           { path: '/prescriptions/new',          element: wrap(<NewPrescriptionPage />) },
           { path: '/prescriptions/templates',    element: wrap(<TemplatesPage />) },
@@ -90,10 +93,11 @@ const router = createBrowserRouter([
           { path: '/billing',         element: wrap(<BillingPage />) },
           { path: '/billing/new',     element: wrap(<NewInvoicePage />) },
           { path: '/billing/:id',     element: wrap(<InvoiceDetailPage />) },
-          { path: '/pharmacy',            element: wrap(<PharmacyPage />) },
-          { path: '/pharmacy/new',        element: wrap(<NewDrugPage />) },
-          { path: '/pharmacy/:id',        element: wrap(<DrugDetailPage />) },
-          { path: '/pharmacy/:id/edit',   element: wrap(<EditDrugPage />) },
+          { path: '/pharmacy',                 element: wrap(<PharmacyPage />) },
+          { path: '/pharmacy/new',             element: wrap(<NewDrugPage />) },
+          { path: '/pharmacy/transactions',    element: wrap(<PharmacyLedgerPage />) },
+          { path: '/pharmacy/:id',             element: wrap(<DrugDetailPage />) },
+          { path: '/pharmacy/:id/edit',        element: wrap(<EditDrugPage />) },
           { path: '/settings',   element: wrap(<SettingsPage />) },
           { path: '/reports',    element: wrap(<ReportsPage />) },
         ],

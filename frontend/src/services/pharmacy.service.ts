@@ -45,6 +45,19 @@ export interface DrugDoc {
   updatedAt: string;
 }
 
+export interface StockTransactionWithDrug extends StockTransactionDoc {
+  drug?: { _id: string; name: string; unit: string };
+}
+
+export interface AllTransactionsParams {
+  page?: number;
+  limit?: number;
+  type?: string;
+  drugId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface StockTransactionDoc {
   _id: string;
   drugId: string;
@@ -166,4 +179,7 @@ export const pharmacyApi = {
 
   transactions: (id: string, params?: { page?: number; limit?: number; type?: string }) =>
     api.get<PaginatedResponse<StockTransactionDoc>>(`/pharmacy/${id}/transactions`, { params }),
+
+  allTransactions: (params?: AllTransactionsParams) =>
+    api.get<PaginatedResponse<StockTransactionWithDrug>>('/pharmacy/transactions', { params }),
 };

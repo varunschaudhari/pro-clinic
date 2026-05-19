@@ -59,6 +59,23 @@ export interface AddLeavePayload {
   reason?: string;
 }
 
+export interface AddLeaveResult {
+  leave: DoctorLeave;
+  hasConflict: boolean;
+}
+
+export interface AddLeaveRangePayload {
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
+export interface AddLeaveRangeResult {
+  created: number;
+  skipped: number;
+  hasConflict: boolean;
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 
 export const scheduleApi = {
@@ -82,7 +99,10 @@ export const scheduleApi = {
     }),
 
   addLeave: (doctorId: string, data: AddLeavePayload) =>
-    api.post<ApiResponse<DoctorLeave>>(`/schedule/doctors/${doctorId}/leaves`, data),
+    api.post<ApiResponse<AddLeaveResult>>(`/schedule/doctors/${doctorId}/leaves`, data),
+
+  addLeaveRange: (doctorId: string, data: AddLeaveRangePayload) =>
+    api.post<ApiResponse<AddLeaveRangeResult>>(`/schedule/doctors/${doctorId}/leaves/range`, data),
 
   deleteLeave: (doctorId: string, leaveId: string) =>
     api.delete(`/schedule/doctors/${doctorId}/leaves/${leaveId}`),

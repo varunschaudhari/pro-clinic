@@ -13,7 +13,7 @@ import { SlotPicker } from './SlotPicker';
 import { patientApi } from '@/services/patient.service';
 import type { PatientListItem } from '@/services/patient.service';
 import { usersApi } from '@/services/auth.service';
-import type { CreateAppointmentPayload, AppointmentMode, VisitType } from '@/services/appointment.service';
+import type { CreateAppointmentPayload, UpdateAppointmentPayload, AppointmentMode, VisitType } from '@/services/appointment.service';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -168,13 +168,27 @@ const PatientSearch = ({ value, onChange, error }: PatientSearchProps) => {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
+export interface AppointmentInitialValues {
+  patientId: string;
+  patientDisplay: string;  // "Name · ID · Mobile"
+  doctorId: string;
+  appointmentDate: string;
+  slotStart?: string;
+  slotEnd?: string;
+  mode: AppointmentMode;
+  visitType: VisitType;
+  chiefComplaint?: string;
+  notes?: string;
+}
+
 interface AppointmentFormProps {
   defaultDoctorId?: string;
   defaultDate?: string;
   userRole: string;
   userId: string;
   isLoading?: boolean;
-  onSubmit: (data: CreateAppointmentPayload) => Promise<void>;
+  initialValues?: AppointmentInitialValues;
+  onSubmit: (data: CreateAppointmentPayload | UpdateAppointmentPayload) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -186,9 +200,11 @@ export const AppointmentForm = ({
   userRole,
   userId,
   isLoading,
+  initialValues,
   onSubmit,
   onCancel,
 }: AppointmentFormProps) => {
+  const isEdit = !!initialValues;
   const [doctors, setDoctors] = useState<{ _id: string; name: string }[]>([]);
 
   // Fetch doctor list on mount
@@ -208,33 +224,60 @@ export const AppointmentForm = ({
     setValue, formState: { errors },
   } = useForm<AppointmentFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      doctorId:        userRole === 'Doctor' ? userId : (defaultDoctorId ?? ''),
-      appointmentDate: defaultDate ?? todayStr(),
-      mode:            'walkin',
-      visitType:       'new',
-    },
+    defaultValues: initialValues
+      ? {
+          patientId:       initialValues.patientId,
+          doctorId:        initialValues.doctorId,
+          appointmentDate: initialValues.appointmentDate,
+          slotStart:       initialValues.slotStart,
+          slotEnd:         initialValues.slotEnd,
+          mode:            initialValues.mode,
+          visitType:       initialValues.visitType,
+          chiefComplaint:  initialValues.chiefComplaint ?? '',
+          notes:           initialValues.notes ?? '',
+        }
+      : {
+          doctorId:        userRole === 'Doctor' ? userId : (defaultDoctorId ?? ''),
+          appointmentDate: defaultDate ?? todayStr(),
+          mode:            'walkin',
+          visitType:       'new',
+        },
   });
 
   // Register doctorId for Doctor role (field not rendered, so setValue ensures it appears in submit values)
   useEffect(() => {
-    if (userRole === 'Doctor' && userId) {
+    if (userRole === 'Doctor' && userId && !isEdit) {
       setValue('doctorId', userId, { shouldValidate: false });
     }
-  }, [userRole, userId, setValue]);
+  }, [userRole, userId, setValue, isEdit]);
 
   const mode     = watch('mode');
   const doctorId = watch('doctorId');
   const apptDate = watch('appointmentDate');
   const showSlot = mode !== 'walkin';
 
-  // Clear slot when doctor or date changes
+  // Clear slot when doctor or date changes (only in create mode)
   useEffect(() => {
-    setValue('slotStart', undefined);
-    setValue('slotEnd',   undefined);
-  }, [doctorId, apptDate, mode, setValue]);
+    if (!isEdit) {
+      setValue('slotStart', undefined);
+      setValue('slotEnd',   undefined);
+    }
+  }, [doctorId, apptDate, mode, setValue, isEdit]);
 
   const handleFormSubmit = (values: AppointmentFormValues) => {
+    if (isEdit) {
+      const payload: UpdateAppointmentPayload = {
+        doctorId:        values.doctorId,
+        appointmentDate: values.appointmentDate,
+        slotStart:       values.slotStart || undefined,
+        slotEnd:         values.slotEnd   || undefined,
+        mode:            values.mode as AppointmentMode,
+        visitType:       values.visitType as VisitType,
+        chiefComplaint:  values.chiefComplaint || undefined,
+        notes:           values.notes || undefined,
+      };
+      return onSubmit(payload);
+    }
     const payload: CreateAppointmentPayload = {
       patientId:       values.patientId,
       doctorId:        values.doctorId,
@@ -251,19 +294,25 @@ export const AppointmentForm = ({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
-      {/* Patient search */}
-      <Field label="Patient" required error={errors.patientId?.message}>
-        <Controller
-          name="patientId"
-          control={control}
-          render={({ field }) => (
-            <PatientSearch
-              value={field.value}
-              onChange={field.onChange}
-              error={errors.patientId?.message}
-            />
-          )}
-        />
+      {/* Patient — read-only in edit mode */}
+      <Field label="Patient" required={!isEdit} error={errors.patientId?.message}>
+        {isEdit ? (
+          <div className="h-9 flex items-center text-sm text-foreground px-3 rounded-md border border-input bg-muted/30">
+            {initialValues!.patientDisplay}
+          </div>
+        ) : (
+          <Controller
+            name="patientId"
+            control={control}
+            render={({ field }) => (
+              <PatientSearch
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.patientId?.message}
+              />
+            )}
+          />
+        )}
       </Field>
 
       {/* Doctor */}
@@ -294,7 +343,7 @@ export const AppointmentForm = ({
           <Input
             {...register('appointmentDate')}
             type="date"
-            min={todayStr()}
+            min={isEdit ? undefined : todayStr()}
             error={errors.appointmentDate?.message}
           />
         </Field>
@@ -372,7 +421,7 @@ export const AppointmentForm = ({
           </Button>
         )}
         <Button type="submit" isLoading={isLoading}>
-          Book Appointment
+          {isEdit ? 'Save Changes' : 'Book Appointment'}
         </Button>
       </div>
     </form>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertCircle, CheckCircle2, XCircle, PhoneOff, FileText, Receipt, Activity } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle2, XCircle, PhoneOff, FileText, Receipt, Activity, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn, calculateAge } from '@/lib/utils';
 import type { AppointmentItem, AppointmentStatus, UpdateStatusPayload } from '@/services/appointment.service';
@@ -69,6 +69,7 @@ export const TokenCard = ({
     }
   };
 
+  const canEdit     = ['scheduled', 'confirmed'].includes(appt.status) && ['ClinicAdmin', 'Receptionist', 'Doctor'].includes(userRole);
   const canCheckIn  = ['scheduled', 'confirmed'].includes(appt.status);
   const canComplete = appt.status === 'in_progress' && ['Doctor', 'ClinicAdmin'].includes(userRole);
   const canNoShow   = ['scheduled', 'confirmed'].includes(appt.status);
@@ -176,6 +177,16 @@ export const TokenCard = ({
           {/* Action buttons */}
           {!isTerminal && (
             <div className="flex items-center gap-1.5">
+              {canEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/appointments/${appt._id}/edit`)}
+                  leftIcon={<Pencil className="h-3.5 w-3.5" />}
+                >
+                  Edit
+                </Button>
+              )}
               {canCheckIn && (
                 <Button
                   size="sm"

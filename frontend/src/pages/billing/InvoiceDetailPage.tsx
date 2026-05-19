@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, IndianRupee, XCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Printer, IndianRupee, XCircle, Trash2, Download } from 'lucide-react';
+import { downloadElementAsPdf } from '@/lib/pdf';
 
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -35,6 +36,7 @@ export default function InvoiceDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     billingApi.get(id!)
@@ -75,6 +77,16 @@ export default function InvoiceDetailPage() {
   };
 
   const handlePrint = () => window.print();
+
+  const handleDownloadPdf = async () => {
+    if (!invoice) return;
+    setDownloading(true);
+    try {
+      await downloadElementAsPdf('invoice-print-area', `${invoice.invoiceNumber}.pdf`);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const isAdmin = user?.role === 'ClinicAdmin';
   const canRecordPayment =
@@ -120,6 +132,10 @@ export default function InvoiceDetailPage() {
                 Record Payment
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={handleDownloadPdf} isLoading={downloading}>
+              <Download className="h-4 w-4 mr-1" />
+              PDF
+            </Button>
             <Button variant="outline" size="sm" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1" />
               Print
@@ -149,7 +165,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {/* Print area */}
-        <div className="rounded-xl border border-border bg-white p-6 relative print:border-0 print:p-0 print:rounded-none">
+        <div id="invoice-print-area" className="rounded-xl border border-border bg-white p-6 relative print:border-0 print:p-0 print:rounded-none">
           <InvoicePrintView invoice={invoice} clinic={clinic} />
         </div>
       </div>

@@ -31,6 +31,18 @@ export const listAppointmentsSchema = z.object({
   limit:     z.coerce.number().min(1).max(200).default(100),
 });
 
+export const updateAppointmentSchema = z.object({
+  doctorId:        z.string().regex(objectId, 'Invalid doctor ID').optional(),
+  appointmentDate: z.string().regex(dateYMD, 'Date must be YYYY-MM-DD').optional(),
+  slotStart:       z.string().regex(timeHHMM, 'Time must be HH:MM').optional(),
+  slotEnd:         z.string().regex(timeHHMM, 'Time must be HH:MM').optional(),
+  mode:            z.enum(['walkin', 'scheduled', 'teleconsult']).optional(),
+  visitType:       z.enum(['new', 'followup']).optional(),
+  chiefComplaint:  z.string().trim().max(500).optional(),
+  notes:           z.string().trim().max(1000).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'No fields to update' });
+
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
+export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 export type UpdateStatusInput      = z.infer<typeof updateStatusSchema>;
 export type ListAppointmentsInput  = z.infer<typeof listAppointmentsSchema>;

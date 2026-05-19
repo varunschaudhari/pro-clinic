@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Trash2, CalendarOff, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, CalendarOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { Input }  from '@/components/ui/Input';
@@ -17,6 +17,7 @@ import {
   type DoctorScheduleDay,
   type DoctorLeave,
 } from '@/services/schedule.service';
+import { getErrorMessage } from '@/lib/utils';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -127,7 +128,10 @@ const DayRow = ({ dayOfWeek, row, onChange }: DayRowProps) => {
 // ── Leave form ────────────────────────────────────────────────────────────────
 
 const leaveSchema = z.object({
-  date:      z.string().min(1, 'Select a date'),
+  mode:      z.enum(['single', 'range']),
+  date:      z.string().optional(),
+  startDate: z.string().optional(),
+  endDate:   z.string().optional(),
   isFullDay: z.string(),
   startTime: z.string().optional(),
   endTime:   z.string().optional(),
@@ -143,17 +147,20 @@ interface LeavesProps {
 }
 
 const LeavesPanel = ({ doctorId }: LeavesProps) => {
-  const [leaves, setLeaves]       = useState<DoctorLeave[]>([]);
-  const [loading, setLoading]     = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [showForm, setShowForm]   = useState(false);
+  const [leaves, setLeaves]         = useState<DoctorLeave[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [showForm, setShowForm]     = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [conflictWarn, setConflictWarn] = useState('');
 
   const { register, handleSubmit, watch, reset, formState: { errors } } =
     useForm<LeaveFormValues>({
       resolver: zodResolver(leaveSchema),
-      defaultValues: { isFullDay: 'true', date: todayStr() },
+      defaultValues: { mode: 'single', isFullDay: 'true', date: todayStr() },
     });
 
+  const mode      = watch('mode');
   const isFullDay = watch('isFullDay') === 'true';
 
   const load = () => {
@@ -170,59 +177,121 @@ const LeavesPanel = ({ doctorId }: LeavesProps) => {
 
   const onSubmit = async (values: LeaveFormValues) => {
     setSaving(true);
+    setSubmitError('');
+    setConflictWarn('');
     try {
-      await scheduleApi.addLeave(doctorId, {
-        date:      values.date,
-        isFullDay: values.isFullDay === 'true',
-        startTime: values.isFullDay !== 'true' ? values.startTime : undefined,
-        endTime:   values.isFullDay !== 'true' ? values.endTime   : undefined,
-        reason:    values.reason || undefined,
-      });
-      reset({ isFullDay: 'true', date: todayStr() });
+      if (values.mode === 'range') {
+        if (!values.startDate || !values.endDate) {
+          setSubmitError('Start and end dates are required');
+          return;
+        }
+        const res = await scheduleApi.addLeaveRange(doctorId, {
+          startDate: values.startDate,
+          endDate:   values.endDate,
+          reason:    values.reason || undefined,
+        });
+        if (res.data.data.hasConflict) {
+          setConflictWarn('Appointments exist in this date range — please review or cancel them.');
+        }
+      } else {
+        if (!values.date) {
+          setSubmitError('Date is required');
+          return;
+        }
+        const res = await scheduleApi.addLeave(doctorId, {
+          date:      values.date,
+          isFullDay: values.isFullDay === 'true',
+          startTime: values.isFullDay !== 'true' ? values.startTime : undefined,
+          endTime:   values.isFullDay !== 'true' ? values.endTime   : undefined,
+          reason:    values.reason || undefined,
+        });
+        if (res.data.data.hasConflict) {
+          setConflictWarn('Appointments exist on this date — please review or cancel them.');
+        }
+      }
+      reset({ mode: 'single', isFullDay: 'true', date: todayStr() });
       setShowForm(false);
       load();
-    } catch {
-      /* errors shown inline by server */
+    } catch (e) {
+      setSubmitError(getErrorMessage(e));
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async (leaveId: string) => {
-    await scheduleApi.deleteLeave(doctorId, leaveId);
-    setLeaves((prev) => prev.filter((l) => l._id !== leaveId));
+    if (!window.confirm('Remove this leave entry?')) return;
+    try {
+      await scheduleApi.deleteLeave(doctorId, leaveId);
+      setLeaves((prev) => prev.filter((l) => l._id !== leaveId));
+    } catch (e) {
+      alert(getErrorMessage(e));
+    }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Upcoming Leaves</h3>
-        <Button size="sm" variant="outline" onClick={() => setShowForm((v) => !v)}>
+        <Button size="sm" variant="outline" onClick={() => { setShowForm((v) => !v); setSubmitError(''); setConflictWarn(''); }}>
           <Plus className="h-4 w-4 mr-1" /> Add Leave
         </Button>
       </div>
 
+      {conflictWarn && (
+        <div className="flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {conflictWarn}
+        </div>
+      )}
+
       {showForm && (
         <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label required className="text-xs">Date</Label>
-              <Input type="date" min={todayStr()} {...register('date')} className="h-8 text-sm" />
-              {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Type</Label>
-              <select
-                {...register('isFullDay')}
-                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-              >
-                <option value="true">Full day</option>
-                <option value="false">Partial day</option>
-              </select>
-            </div>
+          {/* Mode toggle */}
+          <div className="flex gap-1 rounded-md border border-amber-200 p-0.5 bg-amber-100/50 w-fit">
+            {(['single', 'range'] as const).map((m) => (
+              <label key={m} className={cn(
+                'px-3 py-1 rounded text-xs font-medium cursor-pointer transition-colors',
+                watch('mode') === m ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'
+              )}>
+                <input type="radio" value={m} {...register('mode')} className="sr-only" />
+                {m === 'single' ? 'Single day' : 'Date range'}
+              </label>
+            ))}
           </div>
 
-          {!isFullDay && (
+          {mode === 'single' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label required className="text-xs">Date</Label>
+                <Input type="date" min={todayStr()} {...register('date')} className="h-8 text-sm" />
+                {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Type</Label>
+                <select
+                  {...register('isFullDay')}
+                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                >
+                  <option value="true">Full day</option>
+                  <option value="false">Partial day</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label required className="text-xs">From</Label>
+                <Input type="date" min={todayStr()} {...register('startDate')} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label required className="text-xs">To</Label>
+                <Input type="date" min={todayStr()} {...register('endDate')} className="h-8 text-sm" />
+              </div>
+            </div>
+          )}
+
+          {mode === 'single' && !isFullDay && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">From</Label>
@@ -240,8 +309,12 @@ const LeavesPanel = ({ doctorId }: LeavesProps) => {
             <Input {...register('reason')} placeholder="e.g. Personal, Emergency" className="h-8 text-sm" />
           </div>
 
+          {submitError && (
+            <p className="text-xs text-destructive">{submitError}</p>
+          )}
+
           <div className="flex gap-2 justify-end">
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setShowForm(false); setSubmitError(''); }}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={saving}>Save Leave</Button>
           </div>
         </form>
@@ -256,7 +329,7 @@ const LeavesPanel = ({ doctorId }: LeavesProps) => {
           {leaves.map((l) => (
             <li key={l._id} className="flex items-center justify-between gap-2 rounded-md border border-gray-100 bg-white px-3 py-2 text-sm">
               <div>
-                <span className="font-medium text-foreground">{FULL_DAYS[new Date(l.date).getDay()]}, {l.date}</span>
+                <span className="font-medium text-foreground">{FULL_DAYS[new Date(l.date + 'T12:00:00').getDay()]}, {l.date}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
                   {l.isFullDay ? 'Full day' : `${l.startTime} – ${l.endTime}`}
                   {l.reason && ` · ${l.reason}`}

@@ -9,6 +9,7 @@ import {
   getAvailability,
   getLeaves,
   addLeave,
+  addLeaveRange,
   deleteLeave,
 } from '../controllers/schedule.controller';
 
@@ -27,8 +28,9 @@ router.put('/doctors/:doctorId', roleGuard('ClinicAdmin'), upsertSchedule);
 router.get('/doctors/:doctorId/availability', getAvailability);
 
 // ── Leaves ────────────────────────────────────────────────────────────────────
-router.get(   '/doctors/:doctorId/leaves',             getLeaves);
-router.post(  '/doctors/:doctorId/leaves', roleGuard('ClinicAdmin', 'Doctor'), addLeave);
+router.get(   '/doctors/:doctorId/leaves',                   getLeaves);
+router.post(  '/doctors/:doctorId/leaves',       roleGuard('ClinicAdmin', 'Doctor'), addLeave);
+router.post(  '/doctors/:doctorId/leaves/range', roleGuard('ClinicAdmin', 'Doctor'), addLeaveRange);
 router.delete('/doctors/:doctorId/leaves/:leaveId', roleGuard('ClinicAdmin', 'Doctor'), deleteLeave);
 
 export default router;

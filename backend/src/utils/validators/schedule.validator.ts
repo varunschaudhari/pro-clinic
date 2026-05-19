@@ -21,6 +21,8 @@ export const upsertScheduleSchema = z.object({
   days: z.array(scheduleDaySchema).min(1).max(7),
 });
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 export const addLeaveSchema = z.object({
   date:      z.string().regex(dateRegex, 'Must be YYYY-MM-DD'),
   isFullDay: z.boolean().default(true),
@@ -28,6 +30,9 @@ export const addLeaveSchema = z.object({
   endTime:   z.string().regex(timeRegex, 'Must be HH:MM').optional(),
   reason:    z.string().trim().max(200).optional(),
 }).refine(
+  (d) => d.date >= today(),
+  { message: 'Cannot add leave for a past date', path: ['date'] }
+).refine(
   (d) => d.isFullDay || (d.startTime && d.endTime),
   { message: 'startTime and endTime are required for partial-day leave', path: ['startTime'] }
 ).refine(
@@ -35,9 +40,22 @@ export const addLeaveSchema = z.object({
   { message: 'startTime must be before endTime', path: ['endTime'] }
 );
 
+export const addLeaveRangeSchema = z.object({
+  startDate: z.string().regex(dateRegex, 'Must be YYYY-MM-DD'),
+  endDate:   z.string().regex(dateRegex, 'Must be YYYY-MM-DD'),
+  reason:    z.string().trim().max(200).optional(),
+}).refine(
+  (d) => d.startDate >= today(),
+  { message: 'Cannot add leave for a past date', path: ['startDate'] }
+).refine(
+  (d) => d.startDate <= d.endDate,
+  { message: 'startDate must be on or before endDate', path: ['endDate'] }
+);
+
 export const availabilityQuerySchema = z.object({
   date: z.string().regex(dateRegex, 'Must be YYYY-MM-DD'),
 });
 
-export type UpsertScheduleInput = z.infer<typeof upsertScheduleSchema>;
-export type AddLeaveInput       = z.infer<typeof addLeaveSchema>;
+export type UpsertScheduleInput  = z.infer<typeof upsertScheduleSchema>;
+export type AddLeaveInput        = z.infer<typeof addLeaveSchema>;
+export type AddLeaveRangeInput   = z.infer<typeof addLeaveRangeSchema>;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Package, PackageX, TrendingDown, Plus, Search } from 'lucide-react';
+import { AlertTriangle, Package, PackageX, TrendingDown, Plus, Search, ClipboardList } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -84,12 +84,18 @@ export default function PharmacyPage() {
           <h1 className="text-xl font-semibold text-foreground">Pharmacy / Inventory</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{total} item{total !== 1 ? 's' : ''}</p>
         </div>
-        {canManage && (
-          <Button onClick={() => navigate('/pharmacy/new')} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Add Drug
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/pharmacy/transactions')}>
+            <ClipboardList className="h-4 w-4 mr-1" />
+            Stock Ledger
           </Button>
-        )}
+          {canManage && (
+            <Button onClick={() => navigate('/pharmacy/new')} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Drug
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats cards */}

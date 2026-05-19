@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { AppointmentForm } from '@/features/appointments/components/AppointmentForm';
 import { appointmentApi } from '@/services/appointment.service';
-import type { CreateAppointmentPayload } from '@/services/appointment.service';
+import type { CreateAppointmentPayload, UpdateAppointmentPayload } from '@/services/appointment.service';
 import { useAppSelector } from '@/app/hooks';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -22,11 +22,12 @@ export default function NewAppointmentPage() {
   const defaultDate     = params.get('date') ?? undefined;
   const defaultDoctorId = params.get('doctorId') ?? undefined;
 
-  const handleSubmit = async (data: CreateAppointmentPayload) => {
+  const handleSubmit = async (data: CreateAppointmentPayload | UpdateAppointmentPayload) => {
+    const payload = data as CreateAppointmentPayload;
     setIsLoading(true);
     setError('');
     try {
-      await appointmentApi.create(data);
+      await appointmentApi.create(payload);
       navigate('/appointments', { replace: true });
     } catch (err) {
       setError(getErrorMessage(err));

@@ -70,6 +70,17 @@ export interface UpdateStatusPayload {
   cancellationReason?: string;
 }
 
+export interface UpdateAppointmentPayload {
+  doctorId?: string;
+  appointmentDate?: string;
+  slotStart?: string;
+  slotEnd?: string;
+  mode?: AppointmentMode;
+  visitType?: VisitType;
+  chiefComplaint?: string;
+  notes?: string;
+}
+
 export interface ListAppointmentsParams {
   date?: string;         // YYYY-MM-DD
   doctorId?: string;
@@ -104,6 +115,9 @@ export const appointmentApi = {
 
   create: (data: CreateAppointmentPayload) =>
     api.post<ApiResponse<AppointmentItem>>('/appointments', data),
+
+  update: (id: string, data: UpdateAppointmentPayload) =>
+    api.patch<ApiResponse<AppointmentItem>>(`/appointments/${id}`, data),
 
   updateStatus: (id: string, data: UpdateStatusPayload) =>
     api.patch<ApiResponse<AppointmentItem>>(`/appointments/${id}/status`, data),

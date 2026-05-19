@@ -59,6 +59,19 @@ export const getAppointmentById = asyncHandler(async (req: Request, res: Respons
   return ApiResponse.success(res, appointment);
 });
 
+// ── Update ────────────────────────────────────────────────────────────────────
+export const updateAppointment = asyncHandler(async (req: Request, res: Response) => {
+  const appointment = await AppointmentService.updateAppointment(
+    req.clinicId!,
+    req.params.id,
+    req.body,
+    req.user!.userId,
+    req.user!.role
+  );
+
+  return ApiResponse.success(res, appointment, 'Appointment updated');
+});
+
 // ── Update status ─────────────────────────────────────────────────────────────
 export const updateStatus = asyncHandler(async (req: Request, res: Response) => {
   const appointment = await AppointmentService.updateStatus(

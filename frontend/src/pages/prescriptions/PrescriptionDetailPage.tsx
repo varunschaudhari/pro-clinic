@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Printer, Pencil, Trash2, Download } from 'lucide-react';
+import { downloadElementAsPdf } from '@/lib/pdf';
 
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -22,6 +23,7 @@ export default function PrescriptionDetailPage() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState('');
   const [printing, setPrinting]         = useState(false);
+  const [downloading, setDownloading]   = useState(false);
   const [showDelete, setShowDelete]     = useState(false);
   const [deleting, setDeleting]         = useState(false);
   const [deleteError, setDeleteError]   = useState('');
@@ -39,6 +41,16 @@ export default function PrescriptionDetailPage() {
     };
     load();
   }, [id]);
+
+  const handleDownloadPdf = async () => {
+    if (!rx) return;
+    setDownloading(true);
+    try {
+      await downloadElementAsPdf('rx-print-area', `${rx.prescriptionNumber}.pdf`);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handlePrint = async () => {
     if (!rx) return;
@@ -101,6 +113,15 @@ export default function PrescriptionDetailPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={handleDownloadPdf}
+              isLoading={downloading}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handlePrint}
               isLoading={printing}
             >
@@ -135,7 +156,7 @@ export default function PrescriptionDetailPage() {
         </div>
 
         {/* Print area */}
-        <div className="rounded-xl border border-border bg-white p-6 print:border-0 print:p-0 print:rounded-none">
+        <div id="rx-print-area" className="rounded-xl border border-border bg-white p-6 print:border-0 print:p-0 print:rounded-none">
           <PrescriptionPrintView rx={rx} clinic={clinic} />
         </div>
       </div>
