@@ -79,8 +79,9 @@ export interface CreatePatientPayload {
   insuranceValidTill?: string;
   aadharLast4?: string;
   abhaId?: string;
-  source?: string;
-  notes?: string;
+  source?:   string;
+  notes?:    string;
+  smsOptIn?: boolean;
 }
 
 export type UpdatePatientPayload = Partial<CreatePatientPayload>;

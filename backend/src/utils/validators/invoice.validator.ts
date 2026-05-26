@@ -48,7 +48,26 @@ export const listInvoicesSchema = z.object({
   limit:         z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const issueRefundSchema = z.object({
+  reason:              z.string().trim().min(1, 'Reason required').max(500),
+  refundMode:          z.enum(['cash', 'upi', 'bank_transfer', 'other']),
+  refundTransactionId: z.string().trim().optional(),
+});
+
+export type IssueRefundInput = z.infer<typeof issueRefundSchema>;
+
+export const updateInvoiceSchema = z.object({
+  items:              z.array(itemSchema).min(1, 'At least one item required'),
+  isInterState:       z.boolean().optional(),
+  clinicGstin:        z.string().trim().optional(),
+  patientGstin:       z.string().trim().optional(),
+  notes:              z.string().trim().max(500).optional(),
+  termsAndConditions: z.string().trim().max(500).optional(),
+  dueDate:            z.string().optional(),
+});
+
 export type CreateInvoiceInput  = z.infer<typeof createInvoiceSchema>;
+export type UpdateInvoiceInput  = z.infer<typeof updateInvoiceSchema>;
 export type RecordPaymentInput  = z.infer<typeof recordPaymentSchema>;
 export type CancelInvoiceInput  = z.infer<typeof cancelInvoiceSchema>;
 export type ListInvoicesInput   = z.infer<typeof listInvoicesSchema>;

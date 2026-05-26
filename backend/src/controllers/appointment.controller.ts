@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AppointmentService } from '../services/appointment.service';
+import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { listAppointmentsSchema } from '../utils/validators/appointment.validator';
@@ -44,6 +45,15 @@ export const createAppointment = asyncHandler(async (req: Request, res: Response
     req.user!.role
   );
 
+  const appt = appointment as any;
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'CREATE', entity: 'Appointment',
+    entityId: appt?._id ?? req.clinicId!.toString(), entityLabel: appt?.tokenDisplay ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Booked appointment ${appt?.tokenDisplay ?? ''}`,
+  });
+
   return ApiResponse.created(res, appointment, 'Appointment booked successfully');
 });
 
@@ -69,6 +79,14 @@ export const updateAppointment = asyncHandler(async (req: Request, res: Response
     req.user!.role
   );
 
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Appointment',
+    entityId: req.params.id, entityLabel: (appointment as any).tokenDisplay ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated appointment ${(appointment as any).tokenDisplay ?? ''}`,
+  });
+
   return ApiResponse.success(res, appointment, 'Appointment updated');
 });
 
@@ -82,6 +100,14 @@ export const updateStatus = asyncHandler(async (req: Request, res: Response) => 
     req.user!.role
   );
 
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Appointment',
+    entityId: req.params.id, entityLabel: (appointment as any).tokenDisplay ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Changed appointment ${(appointment as any).tokenDisplay ?? ''} status to ${req.body.status}`,
+  });
+
   return ApiResponse.success(res, appointment, 'Status updated');
 });
 
@@ -92,6 +118,14 @@ export const deleteAppointment = asyncHandler(async (req: Request, res: Response
     req.params.id,
     req.user!.userId
   );
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'DELETE', entity: 'Appointment',
+    entityId: req.params.id, entityLabel: req.params.id,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Deleted appointment`,
+  });
 
   return ApiResponse.noContent(res);
 });

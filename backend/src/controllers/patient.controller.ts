@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PatientService } from '../services/patient.service';
+import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { listPatientsSchema } from '../utils/validators/patient.validator';
@@ -10,6 +11,13 @@ export const createPatient = asyncHandler(async (req: Request, res: Response) =>
     req.body,
     req.user!.userId
   );
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'CREATE', entity: 'Patient',
+    entityId: patient._id as any, entityLabel: patient.name,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Registered patient ${patient.name}`,
+  });
   return ApiResponse.created(res, patient, 'Patient registered successfully');
 });
 
@@ -34,11 +42,25 @@ export const updatePatient = asyncHandler(async (req: Request, res: Response) =>
     req.params.patientId,
     req.body
   );
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Patient',
+    entityId: req.params.patientId, entityLabel: patient.name,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated patient record for ${patient.name}`,
+  });
   return ApiResponse.success(res, patient, 'Patient updated successfully');
 });
 
 export const deletePatient = asyncHandler(async (req: Request, res: Response) => {
   await PatientService.deletePatient(req.clinicId!, req.params.patientId, req.user!.userId);
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'DELETE', entity: 'Patient',
+    entityId: req.params.patientId, entityLabel: req.params.patientId,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Deleted patient`,
+  });
   return ApiResponse.noContent(res);
 });
 

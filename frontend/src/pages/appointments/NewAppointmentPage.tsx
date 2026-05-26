@@ -18,9 +18,10 @@ export default function NewAppointmentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState('');
 
-  // Pre-fill date from query param (e.g. /appointments/new?date=2024-01-15)
-  const defaultDate     = params.get('date') ?? undefined;
-  const defaultDoctorId = params.get('doctorId') ?? undefined;
+  // Pre-fill from query params (e.g. /appointments/new?date=2024-01-15&slotStart=14:00)
+  const defaultDate      = params.get('date')      ?? undefined;
+  const defaultDoctorId  = params.get('doctorId')  ?? undefined;
+  const defaultSlotStart = params.get('slotStart') ?? undefined;
 
   const handleSubmit = async (data: CreateAppointmentPayload | UpdateAppointmentPayload) => {
     const payload = data as CreateAppointmentPayload;
@@ -68,6 +69,7 @@ export default function NewAppointmentPage() {
           userId={user?.id ?? ''}
           defaultDate={defaultDate}
           defaultDoctorId={defaultDoctorId}
+          defaultSlotStart={defaultSlotStart}
           isLoading={isLoading}
           onSubmit={handleSubmit}
           onCancel={() => navigate('/appointments')}

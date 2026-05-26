@@ -39,8 +39,8 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       setErrorMsg('');
-      await login(data);
-      navigate(from, { replace: true });
+      const user = await login(data);
+      navigate(user.role === 'SuperAdmin' ? '/admin' : from, { replace: true });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setErrorMsg(axiosErr?.response?.data?.message || getErrorMessage(err));

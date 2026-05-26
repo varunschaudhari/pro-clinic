@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { LabReport } from '../models/LabReport.model';
 import { nextSeq } from '../models/Counter.model';
 import { ApiError } from '../utils/ApiError';
+import { NotifyDispatch } from './notifyDispatch.service';
 import type { IPaginatedResponse } from '../types';
 import type {
   CreateLabReportInput,
@@ -10,7 +11,7 @@ import type {
   ListLabReportsInput,
 } from '../utils/validators/labReport.validator';
 
-const PATIENT_FIELDS  = 'patientId name mobile gender dob age ageUnit';
+const PATIENT_FIELDS  = 'patientId name mobile email gender dob age ageUnit';
 const DOCTOR_FIELDS   = 'name';
 
 function toResponse(doc: Record<string, unknown> | null) {
@@ -188,11 +189,16 @@ export class LabReportService {
 
     await report.save();
 
-    const status = await LabReport.findById(report._id)
+    const populated = await LabReport.findById(report._id)
       .populate('patientId', PATIENT_FIELDS)
       .populate('orderedBy', DOCTOR_FIELDS)
       .lean();
-    return toResponse(status as Record<string, unknown> | null);
+
+    if (populated && input.status === 'completed') {
+      NotifyDispatch.labResultReady(populated as any);
+    }
+
+    return toResponse(populated as Record<string, unknown> | null);
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────

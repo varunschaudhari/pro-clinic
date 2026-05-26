@@ -406,6 +406,81 @@ export const getInventoryReport = asyncHandler(async (req: Request, res: Respons
   });
 });
 
+// ── GST Report (GSTR-1 style) ─────────────────────────────────────────────────
+
+export const getGstReport = asyncHandler(async (req: Request, res: Response) => {
+  const clinicId = req.clinicId!;
+
+  // Default to current IST month
+  const monthStr = (req.query.month as string) ||
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+
+  const [yearStr, monthNum] = monthStr.split('-');
+  const year  = parseInt(yearStr, 10);
+  const month = parseInt(monthNum, 10);
+
+  const monthStart = new Date(`${yearStr}-${monthNum}-01T00:00:00+05:30`);
+  const nextY      = month === 12 ? year + 1 : year;
+  const nextM      = month === 12 ? 1 : month + 1;
+  const nextMonthStart = new Date(`${nextY}-${String(nextM).padStart(2, '0')}-01T00:00:00+05:30`);
+
+  const matchBase = {
+    clinicId,
+    isDeleted:   false,
+    isCancelled: false,
+    invoiceDate: { $gte: monthStart, $lt: nextMonthStart },
+  };
+
+  const [invoiceCount, rowsRaw] = await Promise.all([
+    Invoice.countDocuments(matchBase),
+    Invoice.aggregate([
+      { $match: matchBase },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id:          { hsnCode: { $ifNull: ['$items.hsnCode', ''] }, gstRate: '$items.gstRate' },
+          taxableValue: { $sum: '$items.taxableAmount' },
+          cgstAmount:   { $sum: '$items.cgstAmount' },
+          sgstAmount:   { $sum: '$items.sgstAmount' },
+          igstAmount:   { $sum: '$items.igstAmount' },
+          totalAmount:  { $sum: '$items.totalAmount' },
+          itemCount:    { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.gstRate': 1, '_id.hsnCode': 1 } },
+    ]),
+  ]);
+
+  const rows = rowsRaw.map((r: any) => {
+    const totalTax = round2(r.cgstAmount + r.sgstAmount + r.igstAmount);
+    return {
+      hsnCode:      r._id.hsnCode as string,
+      gstRate:      r._id.gstRate as number,
+      taxableValue: round2(r.taxableValue),
+      cgstAmount:   round2(r.cgstAmount),
+      sgstAmount:   round2(r.sgstAmount),
+      igstAmount:   round2(r.igstAmount),
+      totalTax,
+      totalAmount:  round2(r.totalAmount),
+      itemCount:    r.itemCount as number,
+    };
+  });
+
+  const summary = rows.reduce(
+    (acc, r) => ({
+      taxableValue: round2(acc.taxableValue + r.taxableValue),
+      cgstAmount:   round2(acc.cgstAmount   + r.cgstAmount),
+      sgstAmount:   round2(acc.sgstAmount   + r.sgstAmount),
+      igstAmount:   round2(acc.igstAmount   + r.igstAmount),
+      totalTax:     round2(acc.totalTax     + r.totalTax),
+      totalAmount:  round2(acc.totalAmount  + r.totalAmount),
+    }),
+    { taxableValue: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, totalTax: 0, totalAmount: 0 }
+  );
+
+  return ApiResponse.success(res, { month: monthStr, invoiceCount, rows, summary });
+});
+
 // ── Export (flat rows for CSV / PDF) ─────────────────────────────────────────
 
 function fmtDate(d: Date | string): string {
@@ -538,4 +613,232 @@ export const getExportReport = asyncHandler(async (req: Request, res: Response) 
   }
 
   throw new ApiError(400, `Unknown export type: ${type}`);
+});
+
+// ── Doctor Performance Report ─────────────────────────────────────────────────
+
+export const getDoctorPerformanceReport = asyncHandler(async (req: Request, res: Response) => {
+  const clinicId = new Types.ObjectId(req.clinicId!);
+  const { from, to } = getDateRange(req.query as Record<string, string>);
+
+  const baseMatch = { clinicId, isDeleted: false, appointmentDate: { $gte: from, $lte: to } };
+
+  const [apptAgg, invoiceAgg] = await Promise.all([
+    Appointment.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id:            '$doctorId',
+          consultations:  { $sum: 1 },
+          completed:      { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          uniquePatients: { $addToSet: '$patientId' },
+        },
+      },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'doctor' } },
+      { $unwind: { path: '$doctor', preserveNullAndEmptyArrays: true } },
+      { $sort: { consultations: -1 } },
+    ]),
+
+    Invoice.aggregate([
+      {
+        $match: {
+          clinicId,
+          isDeleted: false,
+          isCancelled: false,
+          appointmentId: { $exists: true },
+          invoiceDate: { $gte: from, $lte: to },
+        },
+      },
+      {
+        $lookup: {
+          from: 'appointments',
+          localField: 'appointmentId',
+          foreignField: '_id',
+          as: 'appt',
+        },
+      },
+      { $unwind: '$appt' },
+      {
+        $group: {
+          _id:               '$appt.doctorId',
+          revenueBilled:     { $sum: '$totalAmount' },
+          revenueCollected:  { $sum: '$paidAmount' },
+          invoiceCount:      { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+
+  // Build a map from doctorId -> invoice data
+  const invoiceMap = new Map<string, { revenueBilled: number; revenueCollected: number; invoiceCount: number }>();
+  for (const row of invoiceAgg) {
+    invoiceMap.set(String(row._id), {
+      revenueBilled:    round2(row.revenueBilled),
+      revenueCollected: round2(row.revenueCollected),
+      invoiceCount:     row.invoiceCount,
+    });
+  }
+
+  const doctors = apptAgg.map((d: any) => {
+    const inv = invoiceMap.get(String(d._id)) ?? { revenueBilled: 0, revenueCollected: 0, invoiceCount: 0 };
+    const uniquePatients = (d.uniquePatients as unknown[]).length;
+    return {
+      doctorId:          String(d._id),
+      name:              d.doctor?.name ?? 'Unknown',
+      consultations:     d.consultations as number,
+      uniquePatients,
+      completed:         d.completed as number,
+      completionRate:    d.consultations > 0 ? Math.round((d.completed / d.consultations) * 100) : 0,
+      revenueBilled:     inv.revenueBilled,
+      revenueCollected:  inv.revenueCollected,
+      invoiceCount:      inv.invoiceCount,
+      avgBilledPerPatient: uniquePatients > 0 ? round2(inv.revenueBilled / uniquePatients) : 0,
+    };
+  });
+
+  const totalConsultations = doctors.reduce((s, d) => s + d.consultations, 0);
+  const totalRevenue       = round2(doctors.reduce((s, d) => s + d.revenueBilled, 0));
+
+  return ApiResponse.success(res, {
+    summary: {
+      totalDoctors:       doctors.length,
+      totalConsultations,
+      totalRevenue,
+    },
+    doctors,
+  });
+});
+
+// ── Inventory Valuation Report ────────────────────────────────────────────────
+
+export const getInventoryValuationReport = asyncHandler(async (req: Request, res: Response) => {
+  const clinicId = new Types.ObjectId(req.clinicId!);
+
+  const [summaryAgg, categoryAgg, rawItems] = await Promise.all([
+    PharmacyItem.aggregate([
+      { $match: { clinicId, isDeleted: false, isActive: true } },
+      {
+        $group: {
+          _id:             null,
+          totalSKUs:       { $sum: 1 },
+          totalUnits:      { $sum: '$currentStock' },
+          totalValue:      { $sum: { $multiply: ['$currentStock', '$sellingPrice'] } },
+          inStockCount:    { $sum: { $cond: [{ $gt: ['$currentStock', 0] }, 1, 0] } },
+          outOfStockCount: { $sum: { $cond: [{ $eq:  ['$currentStock', 0] }, 1, 0] } },
+        },
+      },
+    ]),
+
+    PharmacyItem.aggregate([
+      { $match: { clinicId, isDeleted: false, isActive: true } },
+      {
+        $group: {
+          _id:        '$category',
+          count:      { $sum: 1 },
+          totalUnits: { $sum: '$currentStock' },
+          totalValue: { $sum: { $multiply: ['$currentStock', '$sellingPrice'] } },
+        },
+      },
+      { $sort: { totalValue: -1 } },
+    ]),
+
+    PharmacyItem.find({ clinicId, isDeleted: false, isActive: true })
+      .select('name category currentStock reorderLevel unit sellingPrice')
+      .lean(),
+  ]);
+
+  const s = summaryAgg[0] ?? {};
+
+  const items = (rawItems as any[])
+    .map((item) => {
+      const stockValue = round2(item.currentStock * item.sellingPrice);
+      return {
+        _id:          String(item._id),
+        name:         item.name,
+        category:     item.category,
+        currentStock: item.currentStock,
+        reorderLevel: item.reorderLevel,
+        unit:         item.unit,
+        sellingPrice: item.sellingPrice,
+        stockValue,
+        isLowStock:   item.currentStock > 0 && item.currentStock <= item.reorderLevel,
+        isOutOfStock: item.currentStock === 0,
+      };
+    })
+    .sort((a, b) => b.stockValue - a.stockValue);
+
+  return ApiResponse.success(res, {
+    summary: {
+      totalSKUs:       s.totalSKUs       ?? 0,
+      totalUnits:      s.totalUnits      ?? 0,
+      totalValue:      round2(s.totalValue ?? 0),
+      inStockCount:    s.inStockCount    ?? 0,
+      outOfStockCount: s.outOfStockCount ?? 0,
+    },
+    byCategory: categoryAgg.map((c: any) => ({
+      category:   c._id as string,
+      count:      c.count as number,
+      totalUnits: c.totalUnits as number,
+      totalValue: round2(c.totalValue as number),
+    })),
+    items,
+    snapshotAt: new Date().toISOString(),
+  });
+});
+
+// ── OPD Register ──────────────────────────────────────────────────────────────
+
+export const getOpdRegister = asyncHandler(async (req: Request, res: Response) => {
+  const clinicId  = new Types.ObjectId(req.clinicId!);
+  const dateParam = (req.query.date as string) ||
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const doctorIdParam = req.query.doctorId as string | undefined;
+
+  const dayStart = new Date(`${dateParam}T00:00:00+05:30`);
+  const dayEnd   = new Date(`${dateParam}T23:59:59.999+05:30`);
+
+  const filter: Record<string, any> = {
+    clinicId,
+    isDeleted: false,
+    appointmentDate: { $gte: dayStart, $lte: dayEnd },
+  };
+
+  if (req.user!.role === 'Doctor') {
+    filter.doctorId = req.user!.userId;
+  } else if (doctorIdParam) {
+    filter.doctorId = new Types.ObjectId(doctorIdParam);
+  }
+
+  const appointments = await Appointment.find(filter)
+    .populate('patientId', 'name patientId mobile gender dob age ageUnit')
+    .populate('doctorId', 'name')
+    .sort({ tokenNumber: 1 })
+    .lean();
+
+  const rows = (appointments as any[]).map((a) => ({
+    _id:             String(a._id),
+    tokenDisplay:    a.tokenDisplay,
+    slotStart:       a.slotStart,
+    patientName:     a.patientId?.name     ?? '',
+    patientId:       a.patientId?.patientId ?? '',
+    mobile:          a.patientId?.mobile   ?? '',
+    gender:          a.patientId?.gender   ?? '',
+    dob:             a.patientId?.dob      ?? null,
+    age:             a.patientId?.age      ?? null,
+    ageUnit:         a.patientId?.ageUnit  ?? null,
+    doctorName:      a.doctorId?.name      ?? '',
+    mode:            a.mode,
+    visitType:       a.visitType,
+    chiefComplaint:  a.chiefComplaint      ?? '',
+    status:          a.status,
+    hasVitals:       !!a.vitalSignsId,
+    hasPrescription: !!a.prescriptionId,
+    hasInvoice:      !!a.invoiceId,
+  }));
+
+  return ApiResponse.success(res, {
+    date:  dateParam,
+    count: rows.length,
+    rows,
+  });
 });

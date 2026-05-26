@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Printer, IndianRupee, XCircle, Trash2, Download } from 'lucide-react';
+import { ArrowLeft, Printer, IndianRupee, XCircle, Trash2, Download, Pencil, AlertTriangle, RotateCcw, ExternalLink } from 'lucide-react';
 import { downloadElementAsPdf } from '@/lib/pdf';
 
 import { Button } from '@/components/ui/Button';
@@ -11,8 +11,9 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { InvoicePrintView } from '@/features/billing/components/InvoicePrintView';
 import { RecordPaymentModal } from '@/features/billing/components/RecordPaymentModal';
+import { RefundModal } from '@/features/billing/components/RefundModal';
 import { billingApi } from '@/services/billing.service';
-import type { InvoiceDoc } from '@/services/billing.service';
+import type { InvoiceDoc, IssueRefundPayload } from '@/services/billing.service';
 import { PAYMENT_STATUS_CONFIG } from '@/constants/billing';
 import { getErrorMessage } from '@/lib/utils';
 import { useAppSelector } from '@/app/hooks';
@@ -37,6 +38,7 @@ export default function InvoiceDetailPage() {
   const [deleting, setDeleting]     = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [showRefund, setShowRefund]   = useState(false);
 
   useEffect(() => {
     billingApi.get(id!)
@@ -88,10 +90,25 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleRefundSubmit = async (payload: IssueRefundPayload) => {
+    const res = await billingApi.refund(id!, payload);
+    setShowRefund(false);
+    navigate(`/billing/credit-notes/${res.data.data._id}`, { replace: true });
+  };
+
   const isAdmin = user?.role === 'ClinicAdmin';
+  const canEdit =
+    invoice && !invoice.isCancelled && invoice.paidAmount === 0 &&
+    ['ClinicAdmin', 'Receptionist', 'Doctor'].includes(user?.role ?? '');
   const canRecordPayment =
     invoice && !invoice.isCancelled && invoice.balanceAmount > 0 &&
     ['ClinicAdmin', 'Receptionist'].includes(user?.role ?? '');
+  const isOverdue =
+    invoice && !invoice.isCancelled && invoice.paymentStatus !== 'paid' && invoice.paymentStatus !== 'refunded' &&
+    invoice.dueDate && new Date(invoice.dueDate) < new Date();
+  const canRefund =
+    invoice && !invoice.isCancelled && invoice.paidAmount > 0 &&
+    invoice.paymentStatus !== 'refunded' && isAdmin;
 
   if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
   if (error || !invoice) return (
@@ -110,13 +127,19 @@ export default function InvoiceDetailPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-semibold text-foreground">{invoice.invoiceNumber}</h1>
                 <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusCfg.badge}`}>
                   {statusCfg.label}
                 </span>
                 {invoice.isCancelled && (
                   <span className="text-xs text-destructive font-medium">(Cancelled)</span>
+                )}
+                {isOverdue && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                    <AlertTriangle className="h-3 w-3" />
+                    {Math.floor((Date.now() - new Date(invoice.dueDate!).getTime()) / 86400000)}d overdue
+                  </span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -126,6 +149,27 @@ export default function InvoiceDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {invoice.paymentStatus === 'refunded' && invoice.creditNoteId && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/billing/credit-notes/${invoice.creditNoteId}`)}>
+                <ExternalLink className="h-4 w-4 mr-1" />
+                View Credit Note
+              </Button>
+            )}
+            {canRefund && (
+              <Button
+                variant="outline" size="sm" onClick={() => setShowRefund(true)}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Issue Refund
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="outline" size="sm" onClick={() => navigate(`/billing/${id}/edit`)}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            )}
             {canRecordPayment && (
               <Button size="sm" onClick={() => setShowPayment(true)}>
                 <IndianRupee className="h-4 w-4 mr-1" />
@@ -169,6 +213,17 @@ export default function InvoiceDetailPage() {
           <InvoicePrintView invoice={invoice} clinic={clinic} />
         </div>
       </div>
+
+      {/* Refund modal */}
+      {invoice && (
+        <RefundModal
+          open={showRefund}
+          onClose={() => setShowRefund(false)}
+          onSubmit={handleRefundSubmit}
+          invoiceNumber={invoice.invoiceNumber}
+          paidAmount={invoice.paidAmount}
+        />
+      )}
 
       {/* Record payment modal */}
       {invoice && (

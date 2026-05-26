@@ -2,6 +2,7 @@ import path from 'path';
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { Clinic } from '../models/Clinic.model';
+import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -58,6 +59,15 @@ export const updateSettings = asyncHandler(async (req: Request, res: Response) =
   ).lean();
 
   if (!clinic) throw new ApiError(404, 'Clinic not found');
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Settings',
+    entityId: req.clinicId!.toString(), entityLabel: (clinic as any).name ?? 'Clinic',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated clinic settings`,
+  });
+
   return ApiResponse.success(res, clinic, 'Settings saved');
 });
 

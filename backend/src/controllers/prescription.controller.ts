@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrescriptionService } from '../services/prescription.service';
+import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { listPrescriptionsSchema } from '../utils/validators/prescription.validator';
@@ -26,6 +27,15 @@ export const createPrescription = asyncHandler(async (req: Request, res: Respons
     req.user!.role
   );
 
+  const rxDoc = rx as any;
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'CREATE', entity: 'Prescription',
+    entityId: rxDoc?._id ?? req.clinicId!.toString(), entityLabel: rxDoc?.prescriptionNumber ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Created prescription ${rxDoc?.prescriptionNumber ?? ''}`,
+  });
+
   return ApiResponse.created(res, rx, 'Prescription created successfully');
 });
 
@@ -49,6 +59,14 @@ export const updatePrescription = asyncHandler(async (req: Request, res: Respons
     req.user!.role
   );
 
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Prescription',
+    entityId: req.params.id, entityLabel: (rx as any).prescriptionNumber ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated prescription ${(rx as any).prescriptionNumber ?? ''}`,
+  });
+
   return ApiResponse.success(res, rx, 'Prescription updated successfully');
 });
 
@@ -70,6 +88,14 @@ export const deletePrescription = asyncHandler(async (req: Request, res: Respons
     req.user!.userId,
     req.user!.role
   );
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'DELETE', entity: 'Prescription',
+    entityId: req.params.id, entityLabel: req.params.id,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Deleted prescription`,
+  });
 
   return ApiResponse.noContent(res);
 });

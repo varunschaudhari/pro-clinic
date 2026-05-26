@@ -1,11 +1,13 @@
 import { Types } from 'mongoose';
 import { Invoice } from '../models/Invoice.model';
 import { Patient } from '../models/Patient.model';
+import { Appointment } from '../models/Appointment.model';
 import { nextSeq } from '../models/Counter.model';
 import { ApiError } from '../utils/ApiError';
 import type { IPaginatedResponse } from '../types';
 import type {
   CreateInvoiceInput,
+  UpdateInvoiceInput,
   RecordPaymentInput,
   CancelInvoiceInput,
   ListInvoicesInput,
@@ -69,7 +71,7 @@ function computeTotals(items: ComputedItem[]) {
   return { subtotal, totalDiscount, totalTaxableAmount, totalCGST, totalSGST, totalIGST, roundOff, totalAmount: roundedTotal };
 }
 
-const PATIENT_FIELDS = 'patientId name mobile gender dob age ageUnit';
+const PATIENT_FIELDS = 'patientId name mobile email gender dob age ageUnit';
 const CREATOR_FIELDS = 'name';
 
 // Rename populated `patientId` → `patient` so the frontend can use inv.patient.*
@@ -121,6 +123,10 @@ export class InvoiceService {
       notes:              input.notes,
       termsAndConditions: input.termsAndConditions,
     });
+
+    if (input.appointmentId) {
+      await Appointment.findByIdAndUpdate(input.appointmentId, { invoiceId: invoice._id });
+    }
 
     const created = await Invoice.findById(invoice._id)
       .populate('patientId', PATIENT_FIELDS)
@@ -200,6 +206,49 @@ export class InvoiceService {
     };
   }
 
+  // ── Update (unpaid invoices only) ─────────────────────────────────────────
+
+  static async updateInvoice(
+    clinicId:  Types.ObjectId,
+    id:        string,
+    input:     UpdateInvoiceInput,
+  ) {
+    const inv = await Invoice.findOne({ _id: id, clinicId });
+    if (!inv) throw ApiError.notFound('Invoice not found');
+    if (inv.paidAmount > 0) throw ApiError.badRequest('Cannot edit an invoice with recorded payments');
+    if (inv.isCancelled)    throw ApiError.badRequest('Cannot edit a cancelled invoice');
+
+    const isInterState    = input.isInterState ?? inv.isInterState;
+    const computedItems   = input.items.map((item) => computeItem(item, isInterState));
+    const totals          = computeTotals(computedItems);
+
+    inv.items              = computedItems as any;
+    inv.isInterState       = isInterState;
+    inv.subtotal           = totals.subtotal;
+    inv.totalDiscount      = totals.totalDiscount;
+    inv.totalTaxableAmount = totals.totalTaxableAmount;
+    inv.totalCGST          = totals.totalCGST;
+    inv.totalSGST          = totals.totalSGST;
+    inv.totalIGST          = totals.totalIGST;
+    inv.roundOff           = totals.roundOff;
+    inv.totalAmount        = totals.totalAmount;
+    inv.balanceAmount      = totals.totalAmount; // paidAmount is 0 (checked above)
+
+    if (input.clinicGstin        !== undefined) inv.clinicGstin        = input.clinicGstin;
+    if (input.patientGstin       !== undefined) inv.patientGstin       = input.patientGstin;
+    if (input.notes              !== undefined) inv.notes              = input.notes;
+    if (input.termsAndConditions !== undefined) inv.termsAndConditions = input.termsAndConditions;
+    if (input.dueDate            !== undefined) inv.dueDate = input.dueDate ? new Date(input.dueDate) : undefined;
+
+    await inv.save();
+
+    const updated = await Invoice.findById(inv._id)
+      .populate('patientId', PATIENT_FIELDS)
+      .populate('createdBy', CREATOR_FIELDS)
+      .lean();
+    return toResponse(updated as Record<string, unknown> | null);
+  }
+
   // ── Get single ────────────────────────────────────────────────────────────
 
   static async getInvoiceById(clinicId: Types.ObjectId, id: string) {
@@ -273,6 +322,111 @@ export class InvoiceService {
       .populate('createdBy', CREATOR_FIELDS)
       .lean();
     return toResponse(cancelled as Record<string, unknown> | null);
+  }
+
+  // ── Day-end report ────────────────────────────────────────────────────────
+
+  static async getDayEndReport(clinicId: Types.ObjectId, dateStr: string) {
+    // dateStr is YYYY-MM-DD in IST; convert to UTC window
+    const dayStart = new Date(`${dateStr}T00:00:00+05:30`);
+    const dayEnd   = new Date(`${dateStr}T23:59:59.999+05:30`);
+
+    const rows = await Invoice.aggregate([
+      { $match: { clinicId, isDeleted: false, isCancelled: false } },
+      { $unwind: '$payments' },
+      { $match: { 'payments.paidAt': { $gte: dayStart, $lte: dayEnd } } },
+      {
+        $lookup: {
+          from: 'patients', localField: 'patientId', foreignField: '_id', as: 'patientDoc',
+        },
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          patientName:   { $arrayElemAt: ['$patientDoc.name', 0] },
+          paidAt:        '$payments.paidAt',
+          mode:          '$payments.mode',
+          amount:        '$payments.amount',
+          transactionId: '$payments.transactionId',
+        },
+      },
+      { $sort: { paidAt: 1 } },
+    ]);
+
+    const byModeMap = new Map<string, { amount: number; count: number }>();
+    let totalAmount = 0;
+    for (const r of rows) {
+      const prev = byModeMap.get(r.mode) ?? { amount: 0, count: 0 };
+      byModeMap.set(r.mode, {
+        amount: parseFloat((prev.amount + r.amount).toFixed(2)),
+        count:  prev.count + 1,
+      });
+      totalAmount = parseFloat((totalAmount + r.amount).toFixed(2));
+    }
+
+    return {
+      date:         dateStr,
+      totalAmount,
+      totalCount:   rows.length,
+      byMode:       Array.from(byModeMap.entries()).map(([mode, v]) => ({ mode, ...v })),
+      transactions: rows.map((r: any) => ({
+        invoiceId:     r._id?.toString() ?? '',
+        invoiceNumber: r.invoiceNumber,
+        patientName:   r.patientName ?? 'Unknown',
+        paidAt:        r.paidAt,
+        mode:          r.mode,
+        amount:        r.amount,
+        transactionId: r.transactionId,
+      })),
+    };
+  }
+
+  // ── Revenue analytics ─────────────────────────────────────────────────────
+
+  static async getAnalytics(clinicId: Types.ObjectId, days: number = 30) {
+    const since = new Date();
+    since.setDate(since.getDate() - days + 1);
+    since.setHours(0, 0, 0, 0);
+
+    const [dailyRaw, byItemTypeRaw] = await Promise.all([
+      Invoice.aggregate([
+        { $match: { clinicId, isDeleted: false, isCancelled: false, invoiceDate: { $gte: since } } },
+        { $group: {
+          _id:     { $dateToString: { format: '%Y-%m-%d', date: '$invoiceDate', timezone: 'Asia/Kolkata' } },
+          revenue: { $sum: '$totalAmount' },
+          count:   { $sum: 1 },
+        }},
+        { $sort: { _id: 1 } },
+      ]),
+      Invoice.aggregate([
+        { $match: { clinicId, isDeleted: false, isCancelled: false, invoiceDate: { $gte: since } } },
+        { $unwind: '$items' },
+        { $group: {
+          _id:     '$items.type',
+          revenue: { $sum: '$items.totalAmount' },
+          count:   { $sum: 1 },
+        }},
+        { $sort: { revenue: -1 } },
+      ]),
+    ]);
+
+    // Fill all days including zeroes
+    const trendMap = new Map<string, { revenue: number; count: number }>(
+      dailyRaw.map((d: any) => [d._id, { revenue: d.revenue, count: d.count }])
+    );
+    const filledTrend: { date: string; revenue: number; count: number }[] = [];
+    const cursor = new Date(since);
+    const now    = new Date();
+    while (cursor <= now) {
+      const dateStr = cursor.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      filledTrend.push({ date: dateStr, ...(trendMap.get(dateStr) ?? { revenue: 0, count: 0 }) });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return {
+      dailyTrend: filledTrend,
+      byItemType: byItemTypeRaw.map((d: any) => ({ type: d._id as string, revenue: d.revenue as number, count: d.count as number })),
+    };
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────

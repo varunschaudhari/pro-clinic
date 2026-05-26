@@ -49,6 +49,7 @@ export interface IPatient extends Document {
   source?: 'walkin' | 'online' | 'referral' | 'camp';
 
   notes?: string;
+  smsOptIn: boolean; // patient consent for SMS/WhatsApp notifications
 
   isActive: boolean;
   isDeleted: boolean;
@@ -129,7 +130,8 @@ const PatientSchema = new Schema<IPatient>(
     referredBy: { type: Schema.Types.ObjectId, ref: 'User' },
     source: { type: String, enum: ['walkin', 'online', 'referral', 'camp'], default: 'walkin' },
 
-    notes: { type: String, maxlength: 1000 },
+    notes:     { type: String, maxlength: 1000 },
+    smsOptIn:  { type: Boolean, default: true },
 
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false, index: true },

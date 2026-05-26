@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
+import { SuperAdminLayout } from '@/layouts/SuperAdminLayout';
 import { PageLoader } from '@/components/ui/Spinner';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -30,6 +31,8 @@ const PrescriptionDetailPage = lazy(() => import('@/pages/prescriptions/Prescrip
 const BillingPage            = lazy(() => import('@/pages/billing/BillingPage'));
 const NewInvoicePage         = lazy(() => import('@/pages/billing/NewInvoicePage'));
 const InvoiceDetailPage      = lazy(() => import('@/pages/billing/InvoiceDetailPage'));
+const EditInvoicePage        = lazy(() => import('@/pages/billing/EditInvoicePage'));
+const CreditNotePage         = lazy(() => import('@/pages/billing/CreditNotePage'));
 const LabPage                = lazy(() => import('@/pages/lab/LabPage'));
 const NewLabReportPage       = lazy(() => import('@/pages/lab/NewLabReportPage'));
 const EditLabReportPage      = lazy(() => import('@/pages/lab/EditLabReportPage'));
@@ -45,6 +48,16 @@ const ScheduleManagementPage    = lazy(() => import('@/pages/schedule/ScheduleMa
 const TemplatesPage             = lazy(() => import('@/pages/prescriptions/TemplatesPage'));
 const UnauthorizedPage          = lazy(() => import('@/pages/UnauthorizedPage'));
 const PortalPage                = lazy(() => import('@/pages/portal/PortalPage'));
+const AuditLogPage              = lazy(() => import('@/pages/audit/AuditLogPage'));
+
+// ── SuperAdmin pages ──────────────────────────────────────────────────────
+const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage'));
+const AdminClinicsPage   = lazy(() => import('@/pages/admin/ClinicsPage'));
+const AdminNewClinicPage = lazy(() => import('@/pages/admin/NewClinicPage'));
+const AdminClinicDetailPage = lazy(() => import('@/pages/admin/ClinicDetailPage'));
+
+// ── Public booking page ───────────────────────────────────────────────────
+const BookingPage = lazy(() => import('@/pages/booking/BookingPage'));
 
 
 const wrap = (element: React.ReactNode) => (
@@ -90,9 +103,11 @@ const router = createBrowserRouter([
           { path: '/lab/new',         element: wrap(<NewLabReportPage />) },
           { path: '/lab/:id',         element: wrap(<LabReportDetailPage />) },
           { path: '/lab/:id/edit',    element: wrap(<EditLabReportPage />) },
-          { path: '/billing',         element: wrap(<BillingPage />) },
-          { path: '/billing/new',     element: wrap(<NewInvoicePage />) },
-          { path: '/billing/:id',     element: wrap(<InvoiceDetailPage />) },
+          { path: '/billing',           element: wrap(<BillingPage />) },
+          { path: '/billing/new',       element: wrap(<NewInvoicePage />) },
+          { path: '/billing/:id',       element: wrap(<InvoiceDetailPage />) },
+          { path: '/billing/:id/edit',              element: wrap(<EditInvoicePage />) },
+          { path: '/billing/credit-notes/:cnId',   element: wrap(<CreditNotePage />) },
           { path: '/pharmacy',                 element: wrap(<PharmacyPage />) },
           { path: '/pharmacy/new',             element: wrap(<NewDrugPage />) },
           { path: '/pharmacy/transactions',    element: wrap(<PharmacyLedgerPage />) },
@@ -106,8 +121,9 @@ const router = createBrowserRouter([
       {
         element: <ProtectedRoute allowedRoles={['ClinicAdmin']} />,
         children: [
-          { path: '/staff',    element: wrap(<StaffPage />) },
-          { path: '/schedule', element: wrap(<ScheduleManagementPage />) },
+          { path: '/staff',      element: wrap(<StaffPage />) },
+          { path: '/schedule',   element: wrap(<ScheduleManagementPage />) },
+          { path: '/audit-logs', element: wrap(<AuditLogPage />) },
         ],
       },
     ],
@@ -115,6 +131,20 @@ const router = createBrowserRouter([
 
   // ── Public portal (no auth, no app shell) ────────────────
   { path: '/portal/:token', element: wrap(<PortalPage />) },
+
+  // ── Public booking page (no auth, no app shell) ───────────
+  { path: '/book/:clinicSlug', element: wrap(<BookingPage />) },
+
+  // ── SuperAdmin panel (separate layout) ───────────────────
+  {
+    element: <SuperAdminLayout />,
+    children: [
+      { path: '/admin',              element: wrap(<AdminDashboardPage />) },
+      { path: '/admin/clinics',      element: wrap(<AdminClinicsPage />) },
+      { path: '/admin/clinics/new',  element: wrap(<AdminNewClinicPage />) },
+      { path: '/admin/clinics/:id',  element: wrap(<AdminClinicDetailPage />) },
+    ],
+  },
 
   // ── Misc ──────────────────────────────────────────────────
   { path: '/unauthorized', element: wrap(<UnauthorizedPage />) },

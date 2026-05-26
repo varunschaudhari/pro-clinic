@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Calendar, FileText, Activity,
-  CreditCard, Pill, UserCog, Settings, X, LogOut, BarChart2, CalendarClock, BookTemplate,
+  CreditCard, Pill, UserCog, Settings, X, LogOut, BarChart2, CalendarClock, BookTemplate, ShieldAlert,
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Reports',      href: '/reports',                 icon: BarChart2,       roles: ['ClinicAdmin', 'Doctor', 'Receptionist', 'Pharmacist'] },
   { label: 'Schedule',     href: '/schedule',                icon: CalendarClock,   roles: ['ClinicAdmin'] },
   { label: 'Staff',        href: '/staff',                   icon: UserCog,         roles: ['ClinicAdmin'] },
+  { label: 'Audit Log',    href: '/audit-logs',              icon: ShieldAlert,     roles: ['ClinicAdmin'] },
   { label: 'Settings',     href: '/settings',                icon: Settings,        roles: ['ClinicAdmin'] },
 ];
 

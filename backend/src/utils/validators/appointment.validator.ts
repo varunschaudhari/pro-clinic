@@ -24,11 +24,13 @@ export const updateStatusSchema = z.object({
 
 export const listAppointmentsSchema = z.object({
   date:      z.string().regex(dateYMD).optional(),
+  fromDate:  z.string().regex(dateYMD).optional(),
+  toDate:    z.string().regex(dateYMD).optional(),
   doctorId:  z.string().regex(objectId).optional(),
   patientId: z.string().regex(objectId).optional(),
   status:    z.string().optional(),
   page:      z.coerce.number().min(1).default(1),
-  limit:     z.coerce.number().min(1).max(200).default(100),
+  limit:     z.coerce.number().min(1).max(500).default(100),
 });
 
 export const updateAppointmentSchema = z.object({

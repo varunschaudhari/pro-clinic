@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { LabReport } from '../models/LabReport.model';
 import { LabReportService } from '../services/labReport.service';
+import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -31,6 +32,16 @@ export const createLabReport = asyncHandler(async (req: Request, res: Response) 
     req.user!.userId,
     req.user!.role
   );
+
+  const rpt = report as any;
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'CREATE', entity: 'LabReport',
+    entityId: rpt?._id ?? req.clinicId!.toString(), entityLabel: rpt?.reportNumber ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Created lab report ${rpt?.reportNumber ?? ''}: ${rpt?.testName ?? ''}`,
+  });
+
   return ApiResponse.created(res, report, 'Lab report created successfully');
 });
 
@@ -52,6 +63,15 @@ export const updateLabReport = asyncHandler(async (req: Request, res: Response) 
     req.user!.userId,
     req.user!.role
   );
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'LabReport',
+    entityId: req.params.id, entityLabel: (report as any).reportNumber ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated lab report ${(report as any).reportNumber ?? ''}`,
+  });
+
   return ApiResponse.success(res, report, 'Lab report updated successfully');
 });
 
@@ -63,6 +83,15 @@ export const updateStatus = asyncHandler(async (req: Request, res: Response) => 
     req.user!.userId,
     req.user!.role
   );
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'LabReport',
+    entityId: req.params.id, entityLabel: (report as any).reportNumber ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated lab report ${(report as any).reportNumber ?? ''} status to ${req.body.status}`,
+  });
+
   return ApiResponse.success(res, report, 'Status updated');
 });
 
@@ -73,6 +102,15 @@ export const deleteLabReport = asyncHandler(async (req: Request, res: Response) 
     req.user!.userId,
     req.user!.role
   );
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'DELETE', entity: 'LabReport',
+    entityId: req.params.id, entityLabel: req.params.id,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Deleted lab report`,
+  });
+
   return ApiResponse.noContent(res);
 });
 

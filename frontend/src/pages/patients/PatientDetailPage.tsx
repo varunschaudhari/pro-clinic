@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Activity, AlertCircle, Calendar, CalendarDays, ClipboardList,
   Clock, Droplets, FileText, FlaskConical, HeartPulse,
-  Pill, Receipt, Stethoscope, User, Share2, Copy, CheckCheck,
+  Pill, Receipt, Stethoscope, User, Share2, Copy, CheckCheck, ShieldAlert,
 } from 'lucide-react';
 
 import { Alert } from '@/components/ui/Alert';
@@ -30,6 +30,7 @@ import type { AppointmentItem, AppointmentStatus } from '@/services/appointment.
 import { cn, formatDate, getErrorMessage } from '@/lib/utils';
 import { useAppSelector } from '@/app/hooks';
 import { portalApi } from '@/services/portal.service';
+import { AuditHistory } from '@/components/audit/AuditHistory';
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ const TABS = [
   { id: 'prescriptions', label: 'Prescriptions',   icon: Pill },
   { id: 'lab',           label: 'Lab Reports',      icon: FlaskConical },
   { id: 'billing',       label: 'Billing',          icon: Receipt },
+  { id: 'history',       label: 'Audit History',    icon: ShieldAlert },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -919,6 +921,9 @@ export default function PatientDetailPage() {
           )}
           {activeTab === 'billing' && (
             <PatientBillingTab patientId={patientId!} />
+          )}
+          {activeTab === 'history' && (
+            <AuditHistory entity="Patient" entityId={patientId!} />
           )}
         </div>
       </div>

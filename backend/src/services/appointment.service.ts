@@ -5,6 +5,7 @@ import { User } from '../models/User.model';
 import { nextSeq } from '../models/Counter.model';
 import { ApiError } from '../utils/ApiError';
 import { ScheduleService } from './schedule.service';
+import { NotifyDispatch } from './notifyDispatch.service';
 import type { IPaginatedResponse } from '../types';
 import type {
   CreateAppointmentInput,
@@ -26,7 +27,7 @@ const TRANSITIONS: Record<string, string[]> = {
 
 // ── Populate projections ──────────────────────────────────────────────────────
 
-const PATIENT_FIELDS = 'patientId name mobile gender dob age ageUnit';
+const PATIENT_FIELDS = 'patientId name mobile email gender dob age ageUnit';
 const DOCTOR_FIELDS  = 'name';
 const CREATOR_FIELDS = 'name role';
 
@@ -127,6 +128,9 @@ export class AppointmentService {
       .populate('doctorId', DOCTOR_FIELDS)
       .populate('createdBy', CREATOR_FIELDS)
       .lean();
+
+    if (created) NotifyDispatch.appointmentConfirmed(created as any);
+
     return toResponse(created as Record<string, unknown> | null);
   }
 
@@ -148,7 +152,14 @@ export class AppointmentService {
     }
 
     if (params.patientId) filter.patientId = new Types.ObjectId(params.patientId);
-    if (params.date)      filter.appointmentDate = dayRange(params.date);
+    if (params.date) {
+      filter.appointmentDate = dayRange(params.date);
+    } else if (params.fromDate || params.toDate) {
+      const range: Record<string, Date> = {};
+      if (params.fromDate) range.$gte = new Date(`${params.fromDate}T00:00:00.000Z`);
+      if (params.toDate)   range.$lte = new Date(`${params.toDate}T23:59:59.999Z`);
+      filter.appointmentDate = range;
+    }
     if (params.status)    filter.status = params.status;
 
     const skip  = (params.page - 1) * params.limit;
@@ -248,6 +259,9 @@ export class AppointmentService {
       .populate('patientId', PATIENT_FIELDS)
       .populate('doctorId', DOCTOR_FIELDS)
       .lean();
+
+    if (updated) NotifyDispatch.appointmentStatusChanged(updated as any, input.status);
+
     return toResponse(updated as Record<string, unknown> | null);
   }
 

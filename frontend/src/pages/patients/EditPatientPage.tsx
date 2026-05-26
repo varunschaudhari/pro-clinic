@@ -41,8 +41,9 @@ function detailToFormValues(p: PatientDetail): Partial<PatientFormValues> {
     insuranceValidTill: p.insurance?.validTill ?? '',
     aadharLast4: p.aadharLast4 ?? '',
     abhaId: p.abhaId ?? '',
-    source: p.source ?? '',
-    notes: p.notes ?? '',
+    source:   p.source ?? '',
+    notes:    p.notes ?? '',
+    smsOptIn: (p as any).smsOptIn ?? true,
   };
 }
 

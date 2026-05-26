@@ -184,6 +184,7 @@ export interface AppointmentInitialValues {
 interface AppointmentFormProps {
   defaultDoctorId?: string;
   defaultDate?: string;
+  defaultSlotStart?: string;
   userRole: string;
   userId: string;
   isLoading?: boolean;
@@ -197,6 +198,7 @@ interface AppointmentFormProps {
 export const AppointmentForm = ({
   defaultDoctorId,
   defaultDate,
+  defaultSlotStart,
   userRole,
   userId,
   isLoading,
@@ -239,7 +241,8 @@ export const AppointmentForm = ({
       : {
           doctorId:        userRole === 'Doctor' ? userId : (defaultDoctorId ?? ''),
           appointmentDate: defaultDate ?? todayStr(),
-          mode:            'walkin',
+          slotStart:       defaultSlotStart,
+          mode:            defaultSlotStart ? 'scheduled' : 'walkin',
           visitType:       'new',
         },
   });

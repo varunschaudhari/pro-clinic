@@ -207,6 +207,7 @@ const TotalsPanel = ({ values, isInterState }: { values: InvoiceFormValues; isIn
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface InvoiceFormProps {
+  mode?: 'create' | 'edit';
   defaultValues?: Partial<InvoiceFormValues>;
   defaultPatientId?: string;
   defaultPatientName?: string;
@@ -219,6 +220,7 @@ interface InvoiceFormProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const InvoiceForm = ({
+  mode = 'create',
   defaultValues,
   defaultPatientId = '',
   defaultPatientName = '',
@@ -290,41 +292,47 @@ export const InvoiceForm = ({
             {/* Patient */}
             <SectionCard title="Patient">
               <div>
-                <Label>
-                  Patient <span className="text-destructive">*</span>
-                </Label>
-                <Controller
-                  name="patientId"
-                  control={control}
-                  render={({ field }) => (
-                    <PatientSearch
-                      value={field.value}
-                      displayName={watch('patientName') ?? ''}
-                      onSelect={(id, name) => {
-                        field.onChange(id);
-                        setValue('patientName', name);
-                      }}
-                      error={errors.patientId?.message}
-                    />
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Appointment ID (optional)</Label>
-                  <Input
-                    {...register('appointmentId')}
-                    placeholder="Link to appointment..."
-                    className="mt-1"
+                <Label>Patient</Label>
+                {mode === 'edit' ? (
+                  <p className="mt-1 text-sm font-medium text-foreground px-3 py-2 rounded-md border border-input bg-muted/40">
+                    {watch('patientName') || defaultPatientName}
+                    <span className="ml-2 text-xs text-muted-foreground">(locked — cannot change patient on an existing invoice)</span>
+                  </p>
+                ) : (
+                  <Controller
+                    name="patientId"
+                    control={control}
+                    render={({ field }) => (
+                      <PatientSearch
+                        value={field.value}
+                        displayName={watch('patientName') ?? ''}
+                        onSelect={(id, name) => {
+                          field.onChange(id);
+                          setValue('patientName', name);
+                        }}
+                        error={errors.patientId?.message}
+                      />
+                    )}
                   />
-                </div>
+                )}
+              </div>
+              <div className={mode === 'edit' ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3'}>
+                {mode === 'create' && (
+                  <div>
+                    <Label>Appointment ID (optional)</Label>
+                    <Input
+                      {...register('appointmentId')}
+                      placeholder="Link to appointment..."
+                      className="mt-1"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label>Due Date</Label>
                   <Input
                     {...register('dueDate')}
                     type="date"
                     className="mt-1"
-                    min={new Date().toISOString().slice(0, 10)}
                   />
                 </div>
               </div>
@@ -449,7 +457,7 @@ export const InvoiceForm = ({
                 </Button>
               )}
               <Button type="submit" isLoading={isSubmitting}>
-                Generate Invoice
+                {mode === 'edit' ? 'Update Invoice' : 'Generate Invoice'}
               </Button>
             </div>
           </div>

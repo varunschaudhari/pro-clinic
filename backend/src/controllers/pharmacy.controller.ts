@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PharmacyService } from '../services/pharmacy.service';
+import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import {
@@ -23,6 +24,15 @@ export const getStats = asyncHandler(async (req: Request, res: Response) => {
 
 export const createDrug = asyncHandler(async (req: Request, res: Response) => {
   const drug = await PharmacyService.createDrug(req.clinicId!.toString(), req.body, req.user!.userId.toString());
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'CREATE', entity: 'Drug',
+    entityId: (drug as any)._id, entityLabel: (drug as any).name ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Added drug ${(drug as any).name ?? ''} to inventory`,
+  });
+
   return ApiResponse.created(res, drug, 'Drug added to inventory');
 });
 
@@ -33,11 +43,29 @@ export const getDrug = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateDrug = asyncHandler(async (req: Request, res: Response) => {
   const drug = await PharmacyService.updateDrug(req.clinicId!.toString(), req.params.id, req.body);
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Drug',
+    entityId: req.params.id, entityLabel: (drug as any).name ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Updated drug ${(drug as any).name ?? ''}`,
+  });
+
   return ApiResponse.success(res, drug, 'Drug updated');
 });
 
 export const deleteDrug = asyncHandler(async (req: Request, res: Response) => {
   await PharmacyService.deleteDrug(req.clinicId!.toString(), req.params.id, req.user!.userId.toString());
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'DELETE', entity: 'Drug',
+    entityId: req.params.id, entityLabel: req.params.id,
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Deleted drug from inventory`,
+  });
+
   return ApiResponse.noContent(res);
 });
 
@@ -51,6 +79,15 @@ export const stockIn = asyncHandler(async (req: Request, res: Response) => {
     : (req.query.type as string) === 'return' ? 'return'
     : 'purchase';
   const drug = await PharmacyService.stockIn(req.clinicId!.toString(), req.params.id, parsed.data, req.user!.userId.toString(), txnType);
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Drug',
+    entityId: req.params.id, entityLabel: (drug as any).name ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Stocked in ${(parsed.data as any).quantity ?? ''} units of ${(drug as any).name ?? ''} (${txnType})`,
+  });
+
   return ApiResponse.success(res, drug, 'Stock updated');
 });
 
@@ -61,6 +98,15 @@ export const dispense = asyncHandler(async (req: Request, res: Response) => {
     return res.status(422).json({ success: false, message: 'Validation failed', errors });
   }
   const result = await PharmacyService.dispense(req.clinicId!.toString(), parsed.data, req.user!.userId.toString());
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Drug',
+    entityId: req.clinicId!.toString(), entityLabel: 'Bulk Dispense',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Dispensed prescription drugs`,
+  });
+
   return ApiResponse.success(res, result, 'Drugs dispensed successfully');
 });
 
@@ -71,6 +117,15 @@ export const stockOut = asyncHandler(async (req: Request, res: Response) => {
     return res.status(422).json({ success: false, message: 'Validation failed', errors });
   }
   const drug = await PharmacyService.stockOut(req.clinicId!.toString(), req.params.id, parsed.data, req.user!.userId.toString());
+
+  AuditService.log({
+    clinicId: req.clinicId!, action: 'UPDATE', entity: 'Drug',
+    entityId: req.params.id, entityLabel: (drug as any).name ?? '',
+    performedBy: req.user!.userId, performedByRole: req.user!.role,
+    ipAddress: req.ip ?? '',
+    summary: `Written off ${(parsed.data as any).quantity ?? ''} units of ${(drug as any).name ?? ''}`,
+  });
+
   return ApiResponse.success(res, drug, 'Stock written off');
 });
 

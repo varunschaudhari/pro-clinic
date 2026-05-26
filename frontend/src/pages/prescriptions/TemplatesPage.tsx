@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookTemplate, Pencil, Plus, Search, Trash2, Users, User } from 'lucide-react';
+import { BookTemplate, Pencil, Search, Trash2, Users, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -139,8 +139,8 @@ export default function TemplatesPage() {
   const canEdit = (t: PrescriptionTemplateDoc) => {
     if (isClinicAdmin) return true;
     return typeof t.createdBy === 'object'
-      ? t.createdBy._id === user?._id
-      : t.createdBy === user?._id;
+      ? t.createdBy._id === user?.id
+      : t.createdBy === user?.id;
   };
 
   return (

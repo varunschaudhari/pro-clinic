@@ -67,6 +67,7 @@ const schema = z.object({
   enableSMS:           z.boolean(),
   enableWhatsApp:      z.boolean(),
   enableOnlineBooking: z.boolean(),
+  reminderLeadHours:   z.coerce.number().int(),
   // Bank account
   bankAccountHolder:   z.string().trim().max(100).optional(),
   bankName:            z.string().trim().max(100).optional(),
@@ -115,6 +116,7 @@ const toFormValues = (c: ClinicDoc): SettingsFormValues => ({
   enableSMS:           c.settings.enableSMS ?? false,
   enableWhatsApp:      c.settings.enableWhatsApp ?? false,
   enableOnlineBooking: c.settings.enableOnlineBooking ?? false,
+  reminderLeadHours:   (c.settings as any).reminderLeadHours ?? 24,
   bankAccountHolder:   c.bankAccount?.accountHolderName ?? '',
   bankName:            c.bankAccount?.bankName ?? '',
   bankAccountNumber:   c.bankAccount?.accountNumber ?? '',
@@ -226,6 +228,7 @@ export default function SettingsPage() {
           enableSMS:           values.enableSMS,
           enableWhatsApp:      values.enableWhatsApp,
           enableOnlineBooking: values.enableOnlineBooking,
+          reminderLeadHours:   values.reminderLeadHours,
         },
         bankAccount: {
           accountHolderName: values.bankAccountHolder || undefined,
@@ -597,12 +600,12 @@ export default function SettingsPage() {
       </SectionCard>
 
       {/* Feature Toggles */}
-      <SectionCard title="Features">
+      <SectionCard title="Features & Notifications">
         <p className="text-xs text-muted-foreground">Enable or disable optional features for this clinic.</p>
         <div className="space-y-3">
           {(
             [
-              { field: 'enableSMS'           as const, label: 'SMS Notifications',     desc: 'Send appointment reminders via SMS' },
+              { field: 'enableSMS'           as const, label: 'SMS Notifications',     desc: 'Send appointment reminders and alerts via SMS' },
               { field: 'enableWhatsApp'       as const, label: 'WhatsApp Notifications', desc: 'Send reminders and reports via WhatsApp' },
               { field: 'enableOnlineBooking'  as const, label: 'Online Booking',         desc: 'Allow patients to book appointments online' },
             ] as const
@@ -628,6 +631,55 @@ export default function SettingsPage() {
               />
             </label>
           ))}
+        </div>
+
+        {/* Booking URL — shown when online booking is enabled */}
+        {watch('enableOnlineBooking') && clinicState?.slug && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-1">
+            <p className="text-xs font-medium text-primary">Patient Booking Link</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs text-foreground break-all font-mono bg-background border border-border rounded px-2 py-1.5">
+                {`${window.location.origin}/book/${clinicState.slug}`}
+              </code>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/book/${clinicState.slug}`)}
+                className="shrink-0 text-xs text-primary border border-primary/40 rounded px-2 py-1.5 hover:bg-primary/10 transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Share this link with patients so they can book appointments without calling.</p>
+          </div>
+        )}
+
+        {/* Reminder lead time — only relevant when SMS or WhatsApp is on */}
+        <div className="pt-1">
+          <Label>Appointment Reminder — Send How Early?</Label>
+          <div className="mt-1 max-w-xs">
+            <Controller
+              name="reminderLeadHours"
+              control={control}
+              render={({ field: f }) => (
+                <Select
+                  value={String(f.value)}
+                  onChange={(v) => f.onChange(Number(v))}
+                  disabled={!isAdmin}
+                  options={[
+                    { value: '2',  label: '2 hours before' },
+                    { value: '4',  label: '4 hours before' },
+                    { value: '6',  label: '6 hours before' },
+                    { value: '12', label: '12 hours before' },
+                    { value: '24', label: '24 hours before (default)' },
+                    { value: '48', label: '48 hours before' },
+                  ]}
+                />
+              )}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            How far in advance the system sends appointment reminders to patients (requires SMS or WhatsApp enabled).
+          </p>
         </div>
       </SectionCard>
 

@@ -53,6 +53,7 @@ export interface IClinic extends Document {
     enableSMS: boolean;
     enableWhatsApp: boolean;
     enableOnlineBooking: boolean;
+    reminderLeadHours: number; // hours before appointment to send reminder
     tokenPrefix: string;
     invoicePrefix: string;
     patientIdPrefix: string;
@@ -170,6 +171,7 @@ const ClinicSchema = new Schema<IClinic>(
       enableSMS: { type: Boolean, default: false },
       enableWhatsApp: { type: Boolean, default: false },
       enableOnlineBooking: { type: Boolean, default: false },
+      reminderLeadHours: { type: Number, default: 24, enum: [2, 4, 6, 12, 24, 48] },
       tokenPrefix: { type: String, default: 'T' },
       invoicePrefix: { type: String, default: 'INV' },
       patientIdPrefix: { type: String, default: 'CX' },

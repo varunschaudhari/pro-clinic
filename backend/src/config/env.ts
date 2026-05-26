@@ -38,6 +38,23 @@ export const env = {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || '',
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || '',
 
+  // MSG91 — SMS & WhatsApp
+  MSG91_AUTH_KEY:              process.env.MSG91_AUTH_KEY              || '',
+  MSG91_SENDER_ID:             process.env.MSG91_SENDER_ID             || 'CLINIC',
+  MSG91_WA_INTEGRATED_NUMBER:  process.env.MSG91_WA_INTEGRATED_NUMBER  || '',
+  MSG91_FLOW_APPT_CONFIRM:     process.env.MSG91_FLOW_APPT_CONFIRM     || '',
+  MSG91_FLOW_APPT_REMINDER:    process.env.MSG91_FLOW_APPT_REMINDER    || '',
+  MSG91_FLOW_APPT_STATUS:      process.env.MSG91_FLOW_APPT_STATUS      || '',
+  MSG91_FLOW_LAB_READY:        process.env.MSG91_FLOW_LAB_READY        || '',
+  MSG91_WA_TPL_APPT_CONFIRM:   process.env.MSG91_WA_TPL_APPT_CONFIRM   || '',
+  MSG91_WA_TPL_APPT_REMINDER:  process.env.MSG91_WA_TPL_APPT_REMINDER  || '',
+  MSG91_WA_TPL_APPT_STATUS:    process.env.MSG91_WA_TPL_APPT_STATUS    || '',
+  MSG91_WA_TPL_LAB_READY:          process.env.MSG91_WA_TPL_LAB_READY          || '',
+  MSG91_FLOW_PAYMENT_RECEIPT:       process.env.MSG91_FLOW_PAYMENT_RECEIPT       || '',
+  MSG91_FLOW_INVOICE_OVERDUE:       process.env.MSG91_FLOW_INVOICE_OVERDUE       || '',
+  MSG91_WA_TPL_PAYMENT_RECEIPT:     process.env.MSG91_WA_TPL_PAYMENT_RECEIPT     || '',
+  MSG91_WA_TPL_INVOICE_OVERDUE:     process.env.MSG91_WA_TPL_INVOICE_OVERDUE     || '',
+
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
 

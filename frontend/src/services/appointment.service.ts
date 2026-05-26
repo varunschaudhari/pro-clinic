@@ -82,7 +82,9 @@ export interface UpdateAppointmentPayload {
 }
 
 export interface ListAppointmentsParams {
-  date?: string;         // YYYY-MM-DD
+  date?: string;         // YYYY-MM-DD — single day
+  fromDate?: string;     // YYYY-MM-DD — range start (for week view)
+  toDate?: string;       // YYYY-MM-DD — range end
   doctorId?: string;
   patientId?: string;
   status?: string;

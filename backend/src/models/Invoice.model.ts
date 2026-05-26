@@ -65,6 +65,11 @@ export interface IInvoice extends Document {
   cancellationReason?: string;
   cancelledBy?: Types.ObjectId;
 
+  creditNoteId?: Types.ObjectId;
+  refundedAt?:   Date;
+
+  overdueReminderSentAt?: Date;
+
   isDeleted: boolean;
   deletedAt?: Date;
 
@@ -146,6 +151,11 @@ const InvoiceSchema = new Schema<IInvoice>(
     cancellationReason: { type: String },
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
+    creditNoteId: { type: Schema.Types.ObjectId, ref: 'CreditNote' },
+    refundedAt:   { type: Date },
+
+    overdueReminderSentAt: { type: Date },
+
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date },
   },
@@ -159,6 +169,7 @@ InvoiceSchema.index({ clinicId: 1, invoiceNumber: 1 }, { unique: true });
 InvoiceSchema.index({ clinicId: 1, patientId: 1, invoiceDate: -1 });
 InvoiceSchema.index({ clinicId: 1, paymentStatus: 1 });
 InvoiceSchema.index({ clinicId: 1, invoiceDate: -1 });
+InvoiceSchema.index({ dueDate: 1, paymentStatus: 1, isDeleted: 1, isCancelled: 1 });
 
 // Keep balance in sync with payments
 InvoiceSchema.pre('save', function (next) {

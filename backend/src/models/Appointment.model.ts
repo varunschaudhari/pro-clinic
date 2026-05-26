@@ -5,7 +5,7 @@ export interface IAppointment extends Document {
   clinicId: Types.ObjectId;
   patientId: Types.ObjectId;
   doctorId: Types.ObjectId;
-  createdBy: Types.ObjectId; // Receptionist or patient (online)
+  createdBy?: Types.ObjectId; // Receptionist or patient (online); optional for self-booked
 
   appointmentDate: Date;
   slotStart: string; // HH:MM
@@ -37,6 +37,7 @@ export interface IAppointment extends Document {
   followUpDate?: Date;
   followUpFor?: Types.ObjectId; // Link to previous appointment
 
+  reminderSent: boolean; // true once the pre-appointment reminder has been dispatched
   isDeleted: boolean;
   deletedAt?: Date;
 
@@ -49,7 +50,7 @@ const AppointmentSchema = new Schema<IAppointment>(
     clinicId: { type: Schema.Types.ObjectId, ref: 'Clinic', required: true, index: true },
     patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true },
     doctorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
     appointmentDate: { type: Date, required: true },
     slotStart: { type: String, required: true, match: [/^\d{2}:\d{2}$/, 'Invalid time format HH:MM'] },
@@ -84,8 +85,9 @@ const AppointmentSchema = new Schema<IAppointment>(
     followUpDate: { type: Date },
     followUpFor: { type: Schema.Types.ObjectId, ref: 'Appointment' },
 
-    isDeleted: { type: Boolean, default: false, index: true },
-    deletedAt: { type: Date },
+    reminderSent: { type: Boolean, default: false, index: true },
+    isDeleted:    { type: Boolean, default: false, index: true },
+    deletedAt:    { type: Date },
   },
   {
     timestamps: true,

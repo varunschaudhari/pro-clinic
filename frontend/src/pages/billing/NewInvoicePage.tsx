@@ -7,15 +7,37 @@ import { Alert } from '@/components/ui/Alert';
 import { InvoiceForm } from '@/features/billing/components/InvoiceForm';
 import { billingApi } from '@/services/billing.service';
 import type { CreateInvoicePayload } from '@/services/billing.service';
+import type { InvoiceFormValues } from '@/features/billing/components/InvoiceForm';
 import { getErrorMessage } from '@/lib/utils';
+
+function buildConsultationItem(visitType: string, apptMode: string): InvoiceFormValues['items'][0] {
+  let description = 'Consultation Fee';
+  let unitPrice   = 300;
+
+  if (apptMode === 'teleconsult') {
+    description = 'Teleconsultation';
+    unitPrice   = 150;
+  } else if (visitType === 'followup') {
+    description = 'Follow-up Consultation';
+    unitPrice   = 200;
+  }
+
+  return { type: 'consultation', description, hsnCode: '', quantity: 1, unitPrice, discount: 0, gstRate: 0 };
+}
 
 export default function NewInvoicePage() {
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const defaultPatientId    = searchParams.get('patientId')     ?? '';
-  const defaultPatientName  = searchParams.get('patientName')   ?? '';
+  const defaultPatientId     = searchParams.get('patientId')     ?? '';
+  const defaultPatientName   = searchParams.get('patientName')   ?? '';
   const defaultAppointmentId = searchParams.get('appointmentId') ?? '';
+  const visitType            = searchParams.get('visitType')     ?? 'new';
+  const apptMode             = searchParams.get('mode')          ?? 'walkin';
+
+  const prefillValues: Partial<InvoiceFormValues> | undefined = defaultAppointmentId
+    ? { items: [buildConsultationItem(visitType, apptMode)] }
+    : undefined;
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState('');
@@ -39,12 +61,18 @@ export default function NewInvoicePage() {
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="h-8 w-8 p-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-xl font-semibold text-foreground">New Invoice</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">New Invoice</h1>
+          {defaultPatientName && (
+            <p className="text-xs text-muted-foreground mt-0.5">For {defaultPatientName}</p>
+          )}
+        </div>
       </div>
 
       {error && <Alert variant="error">{error}</Alert>}
 
       <InvoiceForm
+        defaultValues={prefillValues}
         defaultPatientId={defaultPatientId}
         defaultPatientName={defaultPatientName}
         defaultAppointmentId={defaultAppointmentId}

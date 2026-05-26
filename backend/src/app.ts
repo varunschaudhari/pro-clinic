@@ -27,6 +27,9 @@ import scheduleRoutes             from './routes/schedule.routes';
 import notificationRoutes         from './routes/notification.routes';
 import prescriptionTemplateRoutes from './routes/prescriptionTemplate.routes';
 import portalRoutes                from './routes/portal.routes';
+import auditRoutes                 from './routes/audit.routes';
+import superadminRoutes            from './routes/superadmin.routes';
+import bookingRoutes               from './routes/booking.routes';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -46,16 +49,18 @@ app.use(
   })
 );
 
-// Global rate limiter
-app.use(
-  rateLimit({
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    max: env.RATE_LIMIT_MAX,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: 'Too many requests. Please try again later.' },
-  })
-);
+// Global rate limiter — skipped in development to avoid false throttling during testing
+if (env.NODE_ENV !== 'development') {
+  app.use(
+    rateLimit({
+      windowMs: env.RATE_LIMIT_WINDOW_MS,
+      max: env.RATE_LIMIT_MAX,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { success: false, message: 'Too many requests. Please try again later.' },
+    })
+  );
+}
 
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
@@ -90,6 +95,9 @@ app.use('/api/v1/schedule',                scheduleRoutes);
 app.use('/api/v1/notifications',           notificationRoutes);
 app.use('/api/v1/prescription-templates',  prescriptionTemplateRoutes);
 app.use('/api/v1/portal',                  portalRoutes);
+app.use('/api/v1/audit-logs',              auditRoutes);
+app.use('/api/v1/superadmin',             superadminRoutes);
+app.use('/api/v1/booking',               bookingRoutes);
 // Future modules:
 // app.use('/api/v1/prescriptions', prescriptionRoutes);
 // app.use('/api/v1/billing', billingRoutes);

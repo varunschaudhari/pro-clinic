@@ -22,6 +22,7 @@ export interface ClinicSettings {
   enableSMS:           boolean;
   enableWhatsApp:      boolean;
   enableOnlineBooking: boolean;
+  reminderLeadHours:   number;
   tokenPrefix:         string;
   invoicePrefix:       string;
   patientIdPrefix:     string;

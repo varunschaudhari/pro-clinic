@@ -335,6 +335,22 @@ async function main() {
   await connectDB();
   console.log('\n🌱  Starting demo seed…\n');
 
+  // ── 0. Recreate SuperAdmin every seed run ────────────────────────────────────
+  // Delete first, then new User().save() so the pre-save hook hashes the password.
+  // (findOneAndUpdate/upsert skips hooks and stores plaintext — never use that here.)
+  await User.deleteOne({ mobile: '9800000009', role: 'SuperAdmin' });
+  await new User({
+    name:             'Super Admin',
+    mobile:           '9800000009',
+    email:            'superadmin@proclinic.in',
+    password:         'Super@1234',
+    role:             'SuperAdmin',
+    clinicId:         null,
+    isActive:         true,
+    isInviteAccepted: true,
+  }).save();
+  console.log('✅  SuperAdmin ready: 9800000009 / Super@1234');
+
   // ── 1. Wipe existing demo data ─────────────────────────────────────────────
   const existing = await Clinic.findOne({ slug: 'demo-city-multispecialty' });
   if (existing) {
@@ -755,14 +771,15 @@ async function main() {
   console.log(`    Invoices:      ${totalInv}`);
   console.log(`    Lab Reports:   ${labReports.length}`);
   console.log(`    Pharmacy:      ${drugDocs.length} items`);
-  console.log('\n🔐  Login credentials  (password: Demo@1234)');
-  console.log('    Role           Name               Mobile');
-  console.log('    ─────────────────────────────────────────────');
-  console.log('    ClinicAdmin    Meera Kapoor       9800000001');
-  console.log('    Doctor (GM)    Dr. Rajesh Sharma  9800000002');
-  console.log('    Doctor (Gy)    Dr. Priya Nair     9800000003');
-  console.log('    Receptionist   Sunita Patil       9800000004');
-  console.log('    Pharmacist     Anil Kumar         9800000005');
+  console.log('\n🔐  Login credentials');
+  console.log('    Role           Name               Mobile       Password');
+  console.log('    ───────────────────────────────────────────────────────────');
+  console.log('    SuperAdmin     Super Admin        9800000009   Super@1234');
+  console.log('    ClinicAdmin    Meera Kapoor       9800000001   Demo@1234');
+  console.log('    Doctor (GM)    Dr. Rajesh Sharma  9800000002   Demo@1234');
+  console.log('    Doctor (Gy)    Dr. Priya Nair     9800000003   Demo@1234');
+  console.log('    Receptionist   Sunita Patil       9800000004   Demo@1234');
+  console.log('    Pharmacist     Anil Kumar         9800000005   Demo@1234');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   await disconnectDB();

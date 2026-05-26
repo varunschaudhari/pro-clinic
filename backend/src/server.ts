@@ -2,9 +2,13 @@ import app from './app';
 import { connectDB } from './config/database';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { startAppointmentReminderJob } from './jobs/appointmentReminder.job';
+import { startOverdueInvoiceReminderJob } from './jobs/overdueInvoiceReminder.job';
 
 const start = async () => {
   await connectDB();
+  startAppointmentReminderJob();
+  startOverdueInvoiceReminderJob();
 
   const server = app.listen(env.PORT, () => {
     logger.info(`ClinixIndia API running on port ${env.PORT} [${env.NODE_ENV}]`);

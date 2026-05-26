@@ -56,8 +56,9 @@ const schema = z.object({
   insuranceValidTill: z.string().optional(),
   aadharLast4: z.string().trim().regex(/^\d{4}$/, 'Enter last 4 Aadhar digits').optional().or(z.literal('')),
   abhaId: z.string().trim().optional(),
-  source: z.string().optional(),
-  notes: z.string().trim().max(1000).optional(),
+  source:   z.string().optional(),
+  notes:    z.string().trim().max(1000).optional(),
+  smsOptIn: z.boolean().default(true),
 });
 
 export type PatientFormValues = z.infer<typeof schema>;
@@ -176,8 +177,9 @@ export const PatientForm = ({ defaultValues, onSubmit, isLoading, mode, onCancel
       insuranceValidTill: values.insuranceValidTill || undefined,
       aadharLast4: values.aadharLast4 || undefined,
       abhaId: values.abhaId || undefined,
-      source: values.source || undefined,
-      notes: values.notes || undefined,
+      source:   values.source || undefined,
+      notes:    values.notes || undefined,
+      smsOptIn: values.smsOptIn,
     };
     return onSubmit(payload);
   };
@@ -509,6 +511,31 @@ export const PatientForm = ({ defaultValues, onSubmit, isLoading, mode, onCancel
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               />
             </Field>
+          </div>
+
+          {/* SMS / WhatsApp consent */}
+          <div className="md:col-span-2">
+            <Controller
+              name="smsOptIn"
+              control={control}
+              render={({ field }) => (
+                <label className="flex items-center justify-between rounded-lg border border-border px-4 py-3 cursor-pointer hover:bg-accent/20 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">SMS & WhatsApp Notifications</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Send appointment reminders, lab results, and alerts to this patient's mobile number
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => field.onChange(!field.value)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none ${field.value ? 'bg-primary' : 'bg-gray-200'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 translate-y-0.5 rounded-full bg-white shadow transition-transform ${field.value ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </label>
+              )}
+            />
           </div>
         </div>
       </SectionCard>

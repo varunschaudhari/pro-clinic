@@ -49,6 +49,9 @@ export const updateClinicSchema = z.object({
     enableSMS:           z.boolean().optional(),
     enableWhatsApp:      z.boolean().optional(),
     enableOnlineBooking: z.boolean().optional(),
+    reminderLeadHours:   z.number().int().refine((n) => [2, 4, 6, 12, 24, 48].includes(n), {
+      message: 'Must be one of 2, 4, 6, 12, 24, 48 hours',
+    }).optional(),
   }).optional(),
 
   // Bank / payment details

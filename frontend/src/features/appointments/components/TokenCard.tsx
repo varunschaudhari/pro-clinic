@@ -77,6 +77,7 @@ export const TokenCard = ({
   const canRecordVitals = ['in_progress', 'completed'].includes(appt.status) && ['Doctor', 'ClinicAdmin', 'Receptionist'].includes(userRole);
   const canPrescribe = ['in_progress', 'completed'].includes(appt.status) && ['Doctor', 'ClinicAdmin'].includes(userRole);
   const canBill      = appt.status === 'completed' && ['ClinicAdmin', 'Receptionist'].includes(userRole);
+  const alreadyBilled = !!appt.invoiceId;
 
   const p = appt.patient;
   const age = p.dob
@@ -260,15 +261,33 @@ export const TokenCard = ({
             </Button>
           )}
           {canBill && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate(`/billing/new?appointmentId=${appt._id}&patientId=${appt.patient._id}`)}
-              leftIcon={<Receipt className="h-3.5 w-3.5" />}
-              className="border-green-500/40 text-green-700 hover:bg-green-50"
-            >
-              Invoice
-            </Button>
+            alreadyBilled ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/billing/${appt.invoiceId}`)}
+                leftIcon={<Receipt className="h-3.5 w-3.5" />}
+                className="border-green-500/40 text-green-700 hover:bg-green-50"
+              >
+                Billed ✓
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(
+                  `/billing/new?appointmentId=${appt._id}` +
+                  `&patientId=${appt.patient._id}` +
+                  `&patientName=${encodeURIComponent(appt.patient.name)}` +
+                  `&visitType=${appt.visitType}` +
+                  `&mode=${appt.mode}`
+                )}
+                leftIcon={<Receipt className="h-3.5 w-3.5" />}
+                className="border-green-500/40 text-green-700 hover:bg-green-50"
+              >
+                Invoice
+              </Button>
+            )
           )}
 
           {appt.status === 'completed' && appt.consultationEndAt && (

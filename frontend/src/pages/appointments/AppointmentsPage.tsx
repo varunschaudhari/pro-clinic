@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, RefreshCw, CalendarDays, Plus,
-  Clock, CheckCircle2, XCircle, AlertTriangle, Users,
+  Clock, CheckCircle2, XCircle, AlertTriangle, Users, List,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/Button';
@@ -14,9 +14,10 @@ import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/app/hooks';
 import { useAppointments } from '@/features/appointments/hooks/useAppointments';
 import { TokenCard } from '@/features/appointments/components/TokenCard';
+import { AppointmentCalendar, weekMonday } from '@/features/appointments/components/AppointmentCalendar';
 import { usersApi } from '@/services/auth.service';
-import type { UpdateStatusPayload } from '@/services/appointment.service';
-import { useEffect } from 'react';
+import { appointmentApi } from '@/services/appointment.service';
+import type { UpdateStatusPayload, AppointmentItem } from '@/services/appointment.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,14 @@ function addDays(dateStr: string, n: number): string {
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatWeekRange(monday: string): string {
+  const start = new Date(monday + 'T00:00:00');
+  const end   = new Date(monday + 'T00:00:00');
+  end.setDate(end.getDate() + 6);
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+  return `${start.toLocaleDateString('en-IN', opts)} – ${end.toLocaleDateString('en-IN', { ...opts, year: 'numeric' })}`;
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -72,8 +81,15 @@ export default function AppointmentsPage() {
   );
   const [doctors, setDoctors]     = useState<{ _id: string; name: string }[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [view, setView]           = useState<'queue' | 'week'>(
+    () => (localStorage.getItem('appointments-view') as 'queue' | 'week') ?? 'queue'
+  );
+  const [weekAppts, setWeekAppts]   = useState<AppointmentItem[]>([]);
+  const [weekLoading, setWeekLoading] = useState(false);
+  const [weekRefreshKey, setWeekRefreshKey] = useState(0);
 
   const isDoctor = user?.role === 'Doctor';
+  const currentWeekStart = weekMonday(date);
 
   // Fetch doctors for filter dropdown (non-Doctor roles only)
   useEffect(() => {
@@ -85,6 +101,23 @@ export default function AppointmentsPage() {
       })
       .catch(() => { /* silent */ });
   }, [isDoctor]);
+
+  // Week view data fetch
+  useEffect(() => {
+    if (view !== 'week') return;
+    setWeekLoading(true);
+    const toDate    = addDays(currentWeekStart, 6);
+    const docFilter = isDoctor ? (user?.id ?? undefined) : (doctorId || undefined);
+    appointmentApi.list({ fromDate: currentWeekStart, toDate, doctorId: docFilter, limit: 500 })
+      .then((res) => setWeekAppts((res.data as any).data ?? []))
+      .catch(() => setWeekAppts([]))
+      .finally(() => setWeekLoading(false));
+  }, [view, currentWeekStart, doctorId, isDoctor, user?.id, weekRefreshKey]);
+
+  const switchView = (v: 'queue' | 'week') => {
+    setView(v);
+    localStorage.setItem('appointments-view', v);
+  };
 
   const doctorFilterOptions = [
     { value: '', label: 'All Doctors' },
@@ -98,9 +131,13 @@ export default function AppointmentsPage() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    refetch();
+    if (view === 'week') {
+      setWeekRefreshKey((k) => k + 1);
+    } else {
+      refetch();
+    }
     setTimeout(() => setIsRefreshing(false), 800);
-  }, [refetch]);
+  }, [refetch, view]);
 
   const STATUS_LABELS: Record<string, string> = {
     scheduled: 'Scheduled', confirmed: 'Confirmed', in_progress: 'In Progress',
@@ -129,7 +166,9 @@ export default function AppointmentsPage() {
         <div>
           <h1 className="text-xl font-bold text-foreground">Appointments</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Token-based queue · {formatDisplayDate(date)}
+            {view === 'week'
+              ? `Week view · ${formatWeekRange(currentWeekStart)}`
+              : `Token-based queue · ${formatDisplayDate(date)}`}
           </p>
         </div>
         <Button
@@ -146,7 +185,7 @@ export default function AppointmentsPage() {
           {/* Date navigation */}
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setDate((d) => addDays(d, -1))}
+              onClick={() => setDate((d) => addDays(d, view === 'week' ? -7 : -1))}
               className="flex h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-accent transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -155,7 +194,7 @@ export default function AppointmentsPage() {
               onClick={() => setDate(todayStr())}
               className={cn(
                 'px-3 h-8 text-sm font-medium rounded-md border transition-colors',
-                date === todayStr()
+                (view === 'week' ? currentWeekStart === weekMonday(todayStr()) : date === todayStr())
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-input hover:bg-accent'
               )}
@@ -163,7 +202,7 @@ export default function AppointmentsPage() {
               Today
             </button>
             <button
-              onClick={() => setDate((d) => addDays(d, 1))}
+              onClick={() => setDate((d) => addDays(d, view === 'week' ? 7 : 1))}
               className="flex h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-accent transition-colors"
             >
               <ChevronRight className="h-4 w-4" />
@@ -192,19 +231,59 @@ export default function AppointmentsPage() {
             </div>
           )}
 
-          {/* Refresh */}
-          <button
-            onClick={handleRefresh}
-            className="flex items-center gap-1.5 h-8 px-3 text-sm text-muted-foreground hover:text-foreground rounded-md border border-input hover:bg-accent transition-colors ml-auto"
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
-            Refresh
-          </button>
+          {/* View toggle + Refresh */}
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-0.5 rounded-md border border-input p-0.5">
+              <button
+                onClick={() => switchView('queue')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 h-7 text-sm rounded transition-colors',
+                  view === 'queue' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-muted-foreground'
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                Queue
+              </button>
+              <button
+                onClick={() => switchView('week')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 h-7 text-sm rounded transition-colors',
+                  view === 'week' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-muted-foreground'
+                )}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Week
+              </button>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-1.5 h-8 px-3 text-sm text-muted-foreground hover:text-foreground rounded-md border border-input hover:bg-accent transition-colors"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* ── Week calendar view ─────────────────────────────────────── */}
+      {view === 'week' && (
+        weekLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <AppointmentCalendar
+            appointments={weekAppts}
+            weekStart={currentWeekStart}
+            doctors={isDoctor ? (user ? [{ _id: user.id ?? '', name: (user as any).name ?? '' }] : []) : doctors}
+            canCreate={true}
+          />
+        )
+      )}
+
       {/* ── Stats bar ──────────────────────────────────────────────── */}
-      {stats && (
+      {view === 'queue' && stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard
             icon={<Users className="h-5 w-5 text-gray-500" />}
@@ -246,9 +325,9 @@ export default function AppointmentsPage() {
       )}
 
       {/* ── Queue ──────────────────────────────────────────────────── */}
-      {error && <Alert variant="error">{error}</Alert>}
+      {view === 'queue' && error && <Alert variant="error">{error}</Alert>}
 
-      {isLoading ? (
+      {view === 'queue' && (isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Spinner size="lg" />
         </div>
@@ -336,7 +415,7 @@ export default function AppointmentsPage() {
             </>
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 }

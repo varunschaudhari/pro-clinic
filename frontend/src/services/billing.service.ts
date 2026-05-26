@@ -42,6 +42,30 @@ export interface InvoicePayment {
   notes?: string;
 }
 
+export interface CreditNoteDoc {
+  _id:                  string;
+  creditNoteNumber:     string;
+  invoiceId:            string;
+  invoiceNumber:        string;
+  patient: {
+    _id: string; patientId: string; name: string; mobile: string;
+    email?: string; gender: string; age?: number; ageUnit?: string;
+  };
+  amount:               number;
+  reason:               string;
+  refundMode:           string;
+  refundTransactionId?: string;
+  issuedBy:             { _id: string; name: string };
+  issuedAt:             string;
+  createdAt:            string;
+}
+
+export interface IssueRefundPayload {
+  reason:               string;
+  refundMode:           'cash' | 'upi' | 'bank_transfer' | 'other';
+  refundTransactionId?: string;
+}
+
 export interface InvoiceDoc {
   _id: string;
   invoiceNumber: string;
@@ -71,7 +95,26 @@ export interface InvoiceDoc {
   isCancelled: boolean;
   cancelledAt?: string;
   cancellationReason?: string;
+  creditNoteId?: string;
+  refundedAt?: string;
   createdAt: string;
+}
+
+export interface BillingAnalyticsDay {
+  date:    string;
+  revenue: number;
+  count:   number;
+}
+
+export interface BillingAnalyticsItemType {
+  type:    string;
+  revenue: number;
+  count:   number;
+}
+
+export interface BillingAnalytics {
+  dailyTrend: BillingAnalyticsDay[];
+  byItemType: BillingAnalyticsItemType[];
 }
 
 export interface BillingStats {
@@ -96,6 +139,16 @@ export interface CreateInvoicePayload {
     gstRate?: number;
     referenceId?: string;
   }[];
+  isInterState?: boolean;
+  clinicGstin?: string;
+  patientGstin?: string;
+  notes?: string;
+  termsAndConditions?: string;
+  dueDate?: string;
+}
+
+export interface UpdateInvoicePayload {
+  items: CreateInvoicePayload['items'];
   isInterState?: boolean;
   clinicGstin?: string;
   patientGstin?: string;
@@ -136,6 +189,9 @@ export const billingApi = {
   create: (data: CreateInvoicePayload) =>
     api.post<ApiResponse<InvoiceDoc>>('/billing', data),
 
+  update: (id: string, data: UpdateInvoicePayload) =>
+    api.put<ApiResponse<InvoiceDoc>>(`/billing/${id}`, data),
+
   recordPayment: (id: string, data: RecordPaymentPayload) =>
     api.post<ApiResponse<InvoiceDoc>>(`/billing/${id}/payment`, data),
 
@@ -144,6 +200,15 @@ export const billingApi = {
 
   delete: (id: string) =>
     api.delete(`/billing/${id}`),
+
+  refund: (id: string, data: IssueRefundPayload) =>
+    api.post<ApiResponse<CreditNoteDoc>>(`/billing/${id}/refund`, data),
+
+  getCreditNote: (cnId: string) =>
+    api.get<ApiResponse<CreditNoteDoc>>(`/billing/credit-notes/${cnId}`),
+
+  analytics: (days = 30) =>
+    api.get<ApiResponse<BillingAnalytics>>('/billing/analytics', { params: { days } }),
 };
 
 // ── Client-side GST computation (mirrors server logic) ────────────────────────

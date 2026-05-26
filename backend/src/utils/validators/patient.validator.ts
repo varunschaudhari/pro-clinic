@@ -55,8 +55,9 @@ export const createPatientSchema = z.object({
   aadharLast4: z.string().regex(/^\d{4}$/, 'Enter last 4 digits only').optional().or(z.literal('')),
   abhaId: z.string().trim().optional(),
 
-  source: z.enum(['walkin', 'online', 'referral', 'camp']).default('walkin'),
-  notes: z.string().trim().max(1000).optional(),
+  source:    z.enum(['walkin', 'online', 'referral', 'camp']).default('walkin'),
+  notes:     z.string().trim().max(1000).optional(),
+  smsOptIn:  z.boolean().default(true),
 });
 
 export const updatePatientSchema = createPatientSchema.partial().extend({
