@@ -14,6 +14,7 @@ export interface IClinic extends Document {
   type: ClinicType;
   registrationNumber?: string;
   gstin?: string;
+  pharmacyGstin?: string;
 
   address: IAddress;
   mobile: string;
@@ -56,6 +57,7 @@ export interface IClinic extends Document {
     reminderLeadHours: number; // hours before appointment to send reminder
     tokenPrefix: string;
     invoicePrefix: string;
+    pharmacyInvoicePrefix: string;
     patientIdPrefix: string;
     // Print settings
     printHeader?: string;  // tagline shown above clinic name on prints
@@ -100,6 +102,13 @@ const ClinicSchema = new Schema<IClinic>(
     type: { type: String, required: true, enum: CLINIC_TYPES },
     registrationNumber: { type: String, trim: true, sparse: true },
     gstin: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      match: [/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN format'],
+      sparse: true,
+    },
+    pharmacyGstin: {
       type: String,
       trim: true,
       uppercase: true,
@@ -174,6 +183,7 @@ const ClinicSchema = new Schema<IClinic>(
       reminderLeadHours: { type: Number, default: 24, enum: [2, 4, 6, 12, 24, 48] },
       tokenPrefix: { type: String, default: 'T' },
       invoicePrefix: { type: String, default: 'INV' },
+      pharmacyInvoicePrefix: { type: String, default: 'PH' },
       patientIdPrefix: { type: String, default: 'CX' },
       printHeader: { type: String, trim: true, maxlength: 200 },
       printFooter: { type: String, trim: true, maxlength: 500 },

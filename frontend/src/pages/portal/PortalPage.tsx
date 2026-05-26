@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { FileText, FlaskConical, AlertCircle, Download, ExternalLink } from 'lucide-react';
 import { portalApi, type PortalData } from '@/services/portal.service';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmtDate = (iso?: string) =>
@@ -38,7 +40,9 @@ function Section({ icon, title, children }: {
 
 // ── Prescription card ─────────────────────────────────────────────────────────
 
-function PrescriptionCard({ rx }: { rx: PortalData['prescriptions'][0] }) {
+function PrescriptionCard({ rx, token }: { rx: PortalData['prescriptions'][0]; token: string }) {
+  const pdfUrl = `${API_BASE}/portal/${token}/prescription/${rx._id}/pdf`;
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 mb-3 shadow-sm">
       <div className="flex items-start justify-between mb-2">
@@ -52,14 +56,24 @@ function PrescriptionCard({ rx }: { rx: PortalData['prescriptions'][0] }) {
             </p>
           )}
         </div>
-        <div className="text-right shrink-0 ml-2">
-          <p className="text-xs text-gray-500">{fmtDate(rx.createdAt)}</p>
-          {rx.doctorId && (
-            <p className="text-xs text-gray-500">
-              Dr. {rx.doctorId.name}
-              {rx.doctorId.specialization ? ` · ${rx.doctorId.specialization}` : ''}
-            </p>
-          )}
+        <div className="flex items-start gap-3 ml-2">
+          <div className="text-right">
+            <p className="text-xs text-gray-500">{fmtDate(rx.createdAt)}</p>
+            {rx.doctorId && (
+              <p className="text-xs text-gray-500">
+                Dr. {rx.doctorId.name}
+                {rx.doctorId.specialization ? ` · ${rx.doctorId.specialization}` : ''}
+              </p>
+            )}
+          </div>
+          <a
+            href={pdfUrl}
+            download
+            className="shrink-0 inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            PDF
+          </a>
         </div>
       </div>
 
@@ -283,18 +297,35 @@ export default function PortalPage() {
         </div>
 
         {/* ── Prescriptions ────────────────────────────────────────────────── */}
-        <Section
-          icon={<FileText className="h-5 w-5 text-violet-500" />}
-          title={`Prescriptions (${data.prescriptions.length})`}
-        >
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-violet-500" />
+              <h2 className="text-base font-semibold text-gray-800">
+                Prescriptions ({data.prescriptions.length})
+              </h2>
+            </div>
+            {data.prescriptions.length > 1 && token && (
+              <a
+                href={`${API_BASE}/portal/${token}/prescriptions/pdf`}
+                download
+                className="inline-flex items-center gap-1.5 rounded-md border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download All
+              </a>
+            )}
+          </div>
           {data.prescriptions.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-6 bg-white rounded-lg border border-gray-100">
               No prescriptions on record.
             </p>
           ) : (
-            data.prescriptions.map((rx) => <PrescriptionCard key={rx._id} rx={rx} />)
+            data.prescriptions.map((rx) => (
+              <PrescriptionCard key={rx._id} rx={rx} token={token ?? ''} />
+            ))
           )}
-        </Section>
+        </section>
 
         {/* ── Lab Reports ──────────────────────────────────────────────────── */}
         <Section

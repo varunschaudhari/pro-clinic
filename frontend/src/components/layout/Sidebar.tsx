@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Calendar, FileText, Activity,
-  CreditCard, Pill, UserCog, Settings, X, LogOut, BarChart2, CalendarClock, BookTemplate, ShieldAlert,
+  CreditCard, Pill, UserCog, Settings, X, LogOut, BarChart2, CalendarClock, BookTemplate, ShieldAlert, ClipboardList,
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -22,9 +22,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Prescriptions',href: '/prescriptions',           icon: FileText,        roles: ['ClinicAdmin', 'Doctor'], end: true },
   { label: 'Rx Templates', href: '/prescriptions/templates', icon: BookTemplate,    roles: ['ClinicAdmin', 'Doctor'] },
   { label: 'Lab Reports',  href: '/lab',                     icon: Activity,        roles: ['ClinicAdmin', 'Doctor', 'Receptionist'] },
-  { label: 'Billing',      href: '/billing',                 icon: CreditCard,      roles: ['ClinicAdmin', 'Receptionist'] },
-  { label: 'Pharmacy',     href: '/pharmacy',                icon: Pill,            roles: ['ClinicAdmin', 'Pharmacist'] },
-  { label: 'Reports',      href: '/reports',                 icon: BarChart2,       roles: ['ClinicAdmin', 'Doctor', 'Receptionist', 'Pharmacist'] },
+  { label: 'Billing',         href: '/billing',                 icon: CreditCard,    roles: ['ClinicAdmin', 'Receptionist'] },
+  { label: 'Dispense & Bill', href: '/pharmacy/bill',           icon: ClipboardList, roles: ['Pharmacist'] },
+  { label: 'Inventory',       href: '/pharmacy',                icon: Pill,          roles: ['ClinicAdmin', 'Pharmacist'], end: true },
+  { label: 'My Bills',        href: '/billing',                 icon: CreditCard,    roles: ['Pharmacist'] },
+  { label: 'Reports',         href: '/reports',                 icon: BarChart2,     roles: ['ClinicAdmin', 'Doctor', 'Receptionist', 'Pharmacist'] },
   { label: 'Schedule',     href: '/schedule',                icon: CalendarClock,   roles: ['ClinicAdmin'] },
   { label: 'Staff',        href: '/staff',                   icon: UserCog,         roles: ['ClinicAdmin'] },
   { label: 'Audit Log',    href: '/audit-logs',              icon: ShieldAlert,     roles: ['ClinicAdmin'] },

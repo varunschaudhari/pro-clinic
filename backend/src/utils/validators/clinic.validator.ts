@@ -15,6 +15,9 @@ export const updateClinicSchema = z.object({
   gstin:              z.string().trim().toUpperCase()
                         .refine((v) => !v || GSTIN_RE.test(v), 'Invalid GSTIN format')
                         .optional().or(z.literal('')),
+  pharmacyGstin:      z.string().trim().toUpperCase()
+                        .refine((v) => !v || GSTIN_RE.test(v), 'Invalid GSTIN format')
+                        .optional().or(z.literal('')),
   logoUrl:            z.string().trim().url('Must be a valid URL').optional().or(z.literal('')),
 
   // Contact
@@ -41,9 +44,10 @@ export const updateClinicSchema = z.object({
       start: z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:MM format'),
       end:   z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:MM format'),
     }).optional(),
-    tokenPrefix:         z.string().trim().max(5).optional(),
-    invoicePrefix:       z.string().trim().max(10).optional(),
-    patientIdPrefix:     z.string().trim().max(5).optional(),
+    tokenPrefix:            z.string().trim().max(5).optional(),
+    invoicePrefix:          z.string().trim().max(10).optional(),
+    pharmacyInvoicePrefix:  z.string().trim().max(10).optional(),
+    patientIdPrefix:        z.string().trim().max(5).optional(),
     printHeader:         z.string().trim().max(200).optional().or(z.literal('')),
     printFooter:         z.string().trim().max(500).optional().or(z.literal('')),
     enableSMS:           z.boolean().optional(),

@@ -2,12 +2,18 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate';
 import { tenantResolver } from '../middleware/tenantResolver';
 import { roleGuard } from '../middleware/roleGuard';
-import { generateToken, revokeToken, getPortalData } from '../controllers/portal.controller';
+import {
+  generateToken, revokeToken, getPortalData,
+  downloadPrescriptionPdf, downloadAllPrescriptionsPdf,
+} from '../controllers/portal.controller';
 
 const router = Router();
 
 // ── Public — no auth required ────────────────────────────────────────────────
-router.get('/:token', getPortalData);
+// More-specific paths must come before /:token
+router.get('/:token/prescription/:rxId/pdf', downloadPrescriptionPdf);
+router.get('/:token/prescriptions/pdf',      downloadAllPrescriptionsPdf);
+router.get('/:token',                        getPortalData);
 
 // ── Protected — clinic staff only ───────────────────────────────────────────
 router.post(

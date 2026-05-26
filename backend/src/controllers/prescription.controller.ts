@@ -2,8 +2,10 @@ import { Request, Response } from 'express';
 import { PrescriptionService } from '../services/prescription.service';
 import { AuditService } from '../services/audit.service';
 import { ApiResponse } from '../utils/ApiResponse';
+import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { listPrescriptionsSchema } from '../utils/validators/prescription.validator';
+import { Prescription } from '../models/Prescription.model';
 
 export const listPrescriptions = asyncHandler(async (req: Request, res: Response) => {
   const parsed = listPrescriptionsSchema.safeParse(req.query);
@@ -98,4 +100,22 @@ export const deletePrescription = asyncHandler(async (req: Request, res: Respons
   });
 
   return ApiResponse.noContent(res);
+});
+
+// GET /prescriptions/lookup?number=RX-2025-0001
+export const lookupPrescription = asyncHandler(async (req: Request, res: Response) => {
+  const { number } = req.query as { number?: string };
+  if (!number?.trim()) throw ApiError.badRequest('Prescription number is required');
+
+  const rx = await Prescription.findOne({
+    clinicId: req.clinicId!,
+    prescriptionNumber: number.trim().toUpperCase(),
+  })
+    .populate('doctorId', 'name specialization')
+    .populate('patientId', 'name patientId age ageUnit gender mobile bloodGroup')
+    .lean();
+
+  if (!rx) throw ApiError.notFound('Prescription not found');
+
+  return ApiResponse.success(res, rx);
 });

@@ -57,7 +57,9 @@ const AdminNewClinicPage = lazy(() => import('@/pages/admin/NewClinicPage'));
 const AdminClinicDetailPage = lazy(() => import('@/pages/admin/ClinicDetailPage'));
 
 // ── Public booking page ───────────────────────────────────────────────────
-const BookingPage = lazy(() => import('@/pages/booking/BookingPage'));
+const BookingPage         = lazy(() => import('@/pages/booking/BookingPage'));
+const ConsultationPage    = lazy(() => import('@/pages/appointments/ConsultationPage'));
+const PharmacyBillingPage = lazy(() => import('@/pages/pharmacy/PharmacyBillingPage'));
 
 
 const wrap = (element: React.ReactNode) => (
@@ -91,9 +93,10 @@ const router = createBrowserRouter([
           { path: '/patients/new',                element: wrap(<NewPatientPage />) },
           { path: '/patients/:patientId',         element: wrap(<PatientDetailPage />) },
           { path: '/patients/:patientId/edit',    element: wrap(<EditPatientPage />) },
-          { path: '/appointments',          element: wrap(<AppointmentsPage />) },
-          { path: '/appointments/new',      element: wrap(<NewAppointmentPage />) },
-          { path: '/appointments/:id/edit', element: wrap(<EditAppointmentPage />) },
+          { path: '/appointments',                    element: wrap(<AppointmentsPage />) },
+          { path: '/appointments/new',               element: wrap(<NewAppointmentPage />) },
+          { path: '/appointments/:id/edit',          element: wrap(<EditAppointmentPage />) },
+          { path: '/consult/:appointmentId',         element: wrap(<ConsultationPage />) },
           { path: '/prescriptions',              element: wrap(<PrescriptionsPage />) },
           { path: '/prescriptions/new',          element: wrap(<NewPrescriptionPage />) },
           { path: '/prescriptions/templates',    element: wrap(<TemplatesPage />) },
@@ -109,6 +112,7 @@ const router = createBrowserRouter([
           { path: '/billing/:id/edit',              element: wrap(<EditInvoicePage />) },
           { path: '/billing/credit-notes/:cnId',   element: wrap(<CreditNotePage />) },
           { path: '/pharmacy',                 element: wrap(<PharmacyPage />) },
+          { path: '/pharmacy/bill',            element: wrap(<PharmacyBillingPage />) },
           { path: '/pharmacy/new',             element: wrap(<NewDrugPage />) },
           { path: '/pharmacy/transactions',    element: wrap(<PharmacyLedgerPage />) },
           { path: '/pharmacy/:id',             element: wrap(<DrugDetailPage />) },

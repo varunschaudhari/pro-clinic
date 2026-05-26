@@ -2,8 +2,10 @@ import { Types } from 'mongoose';
 import { Invoice } from '../models/Invoice.model';
 import { Patient } from '../models/Patient.model';
 import { Appointment } from '../models/Appointment.model';
+import { Clinic } from '../models/Clinic.model';
 import { nextSeq } from '../models/Counter.model';
 import { ApiError } from '../utils/ApiError';
+import { PharmacyService } from './pharmacy.service';
 import type { IPaginatedResponse } from '../types';
 import type {
   CreateInvoiceInput,
@@ -92,12 +94,24 @@ export class InvoiceService {
     userId: Types.ObjectId,
     userRole: string
   ) {
-    const patient = await Patient.findOne({ _id: input.patientId, clinicId }).lean();
+    const [patient, clinic] = await Promise.all([
+      Patient.findOne({ _id: input.patientId, clinicId }).lean(),
+      Clinic.findById(clinicId).select('settings pharmacyGstin').lean(),
+    ]);
     if (!patient) throw ApiError.notFound('Patient not found');
 
-    const seq           = await nextSeq(clinicId, 'invoice');
+    const isPharmacy    = input.category === 'pharmacy';
+    const counterKey    = isPharmacy ? 'pharmacy_invoice' : 'invoice';
+    const prefix        = isPharmacy
+      ? ((clinic as any)?.settings?.pharmacyInvoicePrefix ?? 'PH')
+      : ((clinic as any)?.settings?.invoicePrefix ?? 'INV');
+    const seq           = await nextSeq(clinicId, counterKey);
     const year          = new Date().getFullYear();
-    const invoiceNumber = `INV-${year}-${String(seq).padStart(4, '0')}`;
+    const invoiceNumber = `${prefix}-${year}-${String(seq).padStart(4, '0')}`;
+
+    // Pharmacy invoices use pharmacyGstin unless caller explicitly provides clinicGstin
+    const resolvedClinicGstin = input.clinicGstin
+      ?? (isPharmacy ? (clinic as any)?.pharmacyGstin : undefined);
 
     const isInterState = input.isInterState ?? false;
     const computedItems = input.items.map((item) => computeItem(item, isInterState));
@@ -108,6 +122,7 @@ export class InvoiceService {
       patientId:          new Types.ObjectId(input.patientId),
       appointmentId:      input.appointmentId ? new Types.ObjectId(input.appointmentId) : undefined,
       invoiceNumber,
+      category:           isPharmacy ? 'pharmacy' : 'clinic',
       invoiceDate:        new Date(),
       dueDate:            input.dueDate ? new Date(input.dueDate) : undefined,
       items:              computedItems,
@@ -117,7 +132,7 @@ export class InvoiceService {
       paymentStatus:      'pending',
       payments:           [],
       isInterState,
-      clinicGstin:        input.clinicGstin,
+      clinicGstin:        resolvedClinicGstin,
       patientGstin:       input.patientGstin,
       createdBy:          userId,
       notes:              input.notes,
@@ -126,6 +141,23 @@ export class InvoiceService {
 
     if (input.appointmentId) {
       await Appointment.findByIdAndUpdate(input.appointmentId, { invoiceId: invoice._id });
+    }
+
+    // Pharmacy invoices: auto-deduct stock for medicine items linked to a drug
+    if (isPharmacy) {
+      const medicineItems = computedItems.filter(
+        (it) => it.type === 'medicine' && it.referenceId
+      );
+      await Promise.allSettled(
+        medicineItems.map((it) =>
+          PharmacyService.stockOut(
+            clinicId.toString(),
+            it.referenceId!.toString(),
+            { quantity: it.quantity, type: 'adjustment', notes: `Pharmacy invoice ${invoiceNumber}` },
+            userId.toString()
+          )
+        )
+      );
     }
 
     const created = await Invoice.findById(invoice._id)
@@ -147,6 +179,9 @@ export class InvoiceService {
     if (params.patientId)     filter.patientId     = new Types.ObjectId(params.patientId);
     if (params.appointmentId) filter.appointmentId = new Types.ObjectId(params.appointmentId);
     if (params.paymentStatus) filter.paymentStatus = params.paymentStatus;
+    if (params.category)      filter.category      = params.category;
+    // Pharmacist sees only pharmacy invoices by default
+    if (userRole === 'Pharmacist' && !params.category) filter.category = 'pharmacy';
 
     if (params.fromDate || params.toDate) {
       const dateFilter: Record<string, Date> = {};

@@ -58,9 +58,11 @@ const schema = z.object({
   workingDays:        z.array(z.number()),
   workingHoursStart:  z.string(),
   workingHoursEnd:    z.string(),
-  tokenPrefix:        z.string().trim().max(5),
-  invoicePrefix:      z.string().trim().max(10),
-  patientIdPrefix:    z.string().trim().max(5),
+  pharmacyGstin:         z.string().trim().optional(),
+  tokenPrefix:           z.string().trim().max(5),
+  invoicePrefix:         z.string().trim().max(10),
+  pharmacyInvoicePrefix: z.string().trim().max(10),
+  patientIdPrefix:       z.string().trim().max(5),
   printHeader:        z.string().trim().max(200).optional(),
   printFooter:        z.string().trim().max(500).optional(),
   // Feature toggles
@@ -92,8 +94,9 @@ const SectionCard = ({ title, children }: { title: string; children: React.React
 const toFormValues = (c: ClinicDoc): SettingsFormValues => ({
   name:                c.name,
   type:                c.type,
-  registrationNumber:  c.registrationNumber ?? '',
-  gstin:               c.gstin ?? '',
+  registrationNumber:    c.registrationNumber ?? '',
+  gstin:                 c.gstin ?? '',
+  pharmacyGstin:         c.pharmacyGstin ?? '',
   logoUrl:             c.logoUrl ?? '',
   mobile:              c.mobile,
   alternateMobile:     c.alternateMobile ?? '',
@@ -108,9 +111,10 @@ const toFormValues = (c: ClinicDoc): SettingsFormValues => ({
   workingDays:         c.settings.workingDays,
   workingHoursStart:   c.settings.workingHours.start,
   workingHoursEnd:     c.settings.workingHours.end,
-  tokenPrefix:         c.settings.tokenPrefix,
-  invoicePrefix:       c.settings.invoicePrefix,
-  patientIdPrefix:     c.settings.patientIdPrefix,
+  tokenPrefix:           c.settings.tokenPrefix,
+  invoicePrefix:         c.settings.invoicePrefix,
+  pharmacyInvoicePrefix: c.settings.pharmacyInvoicePrefix ?? 'PH',
+  patientIdPrefix:       c.settings.patientIdPrefix,
   printHeader:         c.settings.printHeader ?? '',
   printFooter:         c.settings.printFooter ?? '',
   enableSMS:           c.settings.enableSMS ?? false,
@@ -203,7 +207,8 @@ export default function SettingsPage() {
         name:               values.name,
         type:               values.type,
         registrationNumber: values.registrationNumber || undefined,
-        gstin:              values.gstin    || undefined,
+        gstin:              values.gstin              || undefined,
+        pharmacyGstin:      values.pharmacyGstin      || undefined,
         logoUrl:            values.logoUrl  || undefined,
         mobile:             values.mobile,
         alternateMobile:    values.alternateMobile || undefined,
@@ -220,9 +225,10 @@ export default function SettingsPage() {
           appointmentDuration: values.appointmentDuration,
           workingDays:         values.workingDays,
           workingHours:        { start: values.workingHoursStart, end: values.workingHoursEnd },
-          tokenPrefix:         values.tokenPrefix,
-          invoicePrefix:       values.invoicePrefix,
-          patientIdPrefix:     values.patientIdPrefix,
+          tokenPrefix:            values.tokenPrefix,
+          invoicePrefix:          values.invoicePrefix,
+          pharmacyInvoicePrefix:  values.pharmacyInvoicePrefix,
+          patientIdPrefix:        values.patientIdPrefix,
           printHeader:         values.printHeader || undefined,
           printFooter:         values.printFooter || undefined,
           enableSMS:           values.enableSMS,
@@ -536,6 +542,35 @@ export default function SettingsPage() {
               disabled={!isAdmin}
             />
             <p className="text-xs text-muted-foreground mt-1">e.g., CX → CX-0001</p>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Pharmacy Settings */}
+      <SectionCard title="Pharmacy Settings">
+        <p className="text-xs text-muted-foreground">
+          Configure pharmacy billing when the pharmacy operates separately from the main clinic.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Pharmacy GSTIN</Label>
+            <Input
+              {...register('pharmacyGstin')}
+              placeholder="e.g., 27AAPFU0939F1ZV"
+              className="mt-1"
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Appears on pharmacy invoices. Leave blank to use clinic GSTIN.</p>
+          </div>
+          <div>
+            <Label>Pharmacy Invoice Prefix</Label>
+            <Input
+              {...register('pharmacyInvoicePrefix')}
+              placeholder="PH"
+              className="mt-1"
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-muted-foreground mt-1">e.g., PH → PH-2024-0001</p>
           </div>
         </div>
       </SectionCard>

@@ -14,11 +14,15 @@ import {
   updatePrescription,
   recordPrint,
   deletePrescription,
+  lookupPrescription,
 } from '../controllers/prescription.controller';
 
 const router = Router();
 
 router.use(authenticate, tenantResolver);
+
+// ── Pharmacist lookup by number ────────────────────────────────────────────────
+router.get('/lookup', roleGuard('ClinicAdmin', 'Doctor', 'Pharmacist', 'Receptionist'), lookupPrescription);
 
 // Collection
 router.get('/', listPrescriptions);

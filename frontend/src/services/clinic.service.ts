@@ -13,21 +13,22 @@ export interface ClinicAddress {
 }
 
 export interface ClinicSettings {
-  currency:            string;
-  timezone:            string;
-  dateFormat:          string;
-  appointmentDuration: number;
-  workingDays:         number[];
-  workingHours:        { start: string; end: string };
-  enableSMS:           boolean;
-  enableWhatsApp:      boolean;
-  enableOnlineBooking: boolean;
-  reminderLeadHours:   number;
-  tokenPrefix:         string;
-  invoicePrefix:       string;
-  patientIdPrefix:     string;
-  printHeader?:        string;
-  printFooter?:        string;
+  currency:              string;
+  timezone:              string;
+  dateFormat:            string;
+  appointmentDuration:   number;
+  workingDays:           number[];
+  workingHours:          { start: string; end: string };
+  enableSMS:             boolean;
+  enableWhatsApp:        boolean;
+  enableOnlineBooking:   boolean;
+  reminderLeadHours:     number;
+  tokenPrefix:           string;
+  invoicePrefix:         string;
+  pharmacyInvoicePrefix: string;
+  patientIdPrefix:       string;
+  printHeader?:          string;
+  printFooter?:          string;
 }
 
 export interface ClinicBankAccount {
@@ -45,6 +46,7 @@ export interface ClinicDoc {
   type:               string;
   registrationNumber?: string;
   gstin?:             string;
+  pharmacyGstin?:     string;
   address:            ClinicAddress;
   mobile:             string;
   alternateMobile?:   string;
@@ -81,13 +83,14 @@ export interface UpdateClinicPayload {
   type?:               string;
   registrationNumber?: string;
   gstin?:              string;
+  pharmacyGstin?:      string;
   logoUrl?:            string;
   mobile?:             string;
   alternateMobile?:    string;
   email?:              string;
   website?:            string;
   address?: Partial<ClinicAddress>;
-  settings?: Partial<ClinicSettings>;
+  settings?: Partial<ClinicSettings> & { pharmacyInvoicePrefix?: string };
   bankAccount?: Partial<ClinicBankAccount>;
 }
 

@@ -9,6 +9,8 @@ import { Clinic } from '../models/Clinic.model';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../utils/asyncHandler';
+import { streamPrescriptionPdf } from '../utils/prescriptionPdf';
+import { env } from '../config/env';
 
 const TOKEN_EXPIRY_DAYS = 30;
 
@@ -84,7 +86,7 @@ export const getPortalData = asyncHandler(async (req: Request, res: Response) =>
     Prescription.find({ patientId: tokenDoc.patientId, clinicId: tokenDoc.clinicId, isDeleted: false })
       .sort({ createdAt: -1 })
       .limit(10)
-      .populate('doctorId', 'name specialization')
+      .populate('doctorId', 'name specialization qualifications licenseNumber')
       .select('prescriptionNumber medicines diagnosis advice dietAdvice followUpDate createdAt doctorId')
       .lean(),
 
@@ -108,4 +110,117 @@ export const getPortalData = asyncHandler(async (req: Request, res: Response) =>
     labReports,
     expiresAt: tokenDoc.expiresAt,
   });
+});
+
+// ── Shared: resolve & validate a portal token ─────────────────────────────────
+
+async function resolveToken(token: string) {
+  const tokenDoc = await PatientPortalToken.findOne({ token }).lean();
+  if (!tokenDoc || !tokenDoc.isActive) throw ApiError.notFound('Invalid or revoked link');
+  if (tokenDoc.expiresAt < new Date()) throw ApiError.unauthorized('Portal link has expired');
+  return tokenDoc;
+}
+
+// ── GET /portal/:token/prescription/:rxId/pdf ─────────────────────────────────
+
+export const downloadPrescriptionPdf = asyncHandler(async (req: Request, res: Response) => {
+  const tokenDoc = await resolveToken(req.params.token);
+
+  const rx = await Prescription.findOne({
+    _id:       req.params.rxId,
+    patientId: tokenDoc.patientId,
+    clinicId:  tokenDoc.clinicId,
+  })
+    .populate('doctorId', 'name specialization qualifications licenseNumber')
+    .lean();
+
+  if (!rx) throw ApiError.notFound('Prescription not found');
+
+  const [clinic, patient] = await Promise.all([
+    Clinic.findById(tokenDoc.clinicId).select('name address mobile logoUrl').lean(),
+    Patient.findById(tokenDoc.patientId).select('name patientId age ageUnit gender bloodGroup').lean(),
+  ]);
+
+  if (!clinic || !patient) throw ApiError.notFound('Clinic or patient not found');
+
+  const doctor = rx.doctorId as any;
+
+  await streamPrescriptionPdf(
+    res,
+    { name: clinic.name, address: clinic.address, mobile: clinic.mobile, logoUrl: clinic.logoUrl },
+    { name: (patient as any).name, patientId: (patient as any).patientId, age: (patient as any).age, ageUnit: (patient as any).ageUnit, gender: (patient as any).gender, bloodGroup: (patient as any).bloodGroup },
+    [{
+      _id:                String(rx._id),
+      prescriptionNumber: rx.prescriptionNumber,
+      createdAt:          rx.createdAt,
+      diagnosis:          rx.diagnosis,
+      medicines:          rx.medicines as any,
+      labTests:           rx.labTests as any,
+      advice:             rx.advice,
+      dietAdvice:         rx.dietAdvice,
+      followUpDate:       rx.followUpDate,
+      doctor: {
+        name:            doctor?.name ?? 'Unknown',
+        specialization:  doctor?.specialization,
+        qualifications:  doctor?.qualifications,
+        licenseNumber:   doctor?.licenseNumber,
+      },
+    }],
+    req.params.token,
+    env.CLIENT_URL,
+    `${rx.prescriptionNumber}-${(patient as any).name.replace(/\s+/g, '-')}.pdf`,
+  );
+});
+
+// ── GET /portal/:token/prescriptions/pdf ──────────────────────────────────────
+
+export const downloadAllPrescriptionsPdf = asyncHandler(async (req: Request, res: Response) => {
+  const tokenDoc = await resolveToken(req.params.token);
+
+  const [prescriptions, clinic, patient] = await Promise.all([
+    Prescription.find({ patientId: tokenDoc.patientId, clinicId: tokenDoc.clinicId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate('doctorId', 'name specialization qualifications licenseNumber')
+      .lean(),
+    Clinic.findById(tokenDoc.clinicId).select('name address mobile logoUrl').lean(),
+    Patient.findById(tokenDoc.patientId).select('name patientId age ageUnit gender bloodGroup').lean(),
+  ]);
+
+  if (!clinic || !patient) throw ApiError.notFound('Clinic or patient not found');
+  if (!prescriptions.length) throw ApiError.notFound('No prescriptions found');
+
+  const pdfPrescriptions = prescriptions.map(rx => {
+    const doctor = rx.doctorId as any;
+    return {
+      _id:                String(rx._id),
+      prescriptionNumber: rx.prescriptionNumber,
+      createdAt:          rx.createdAt,
+      diagnosis:          rx.diagnosis,
+      medicines:          rx.medicines as any,
+      labTests:           rx.labTests as any,
+      advice:             rx.advice,
+      dietAdvice:         rx.dietAdvice,
+      followUpDate:       rx.followUpDate,
+      doctor: {
+        name:           doctor?.name ?? 'Unknown',
+        specialization: doctor?.specialization,
+        qualifications: doctor?.qualifications,
+        licenseNumber:  doctor?.licenseNumber,
+      },
+    };
+  });
+
+  const patientDoc = patient as any;
+  const safePatientName = patientDoc.name.replace(/\s+/g, '-');
+
+  await streamPrescriptionPdf(
+    res,
+    { name: clinic.name, address: clinic.address, mobile: clinic.mobile, logoUrl: clinic.logoUrl },
+    { name: patientDoc.name, patientId: patientDoc.patientId, age: patientDoc.age, ageUnit: patientDoc.ageUnit, gender: patientDoc.gender, bloodGroup: patientDoc.bloodGroup },
+    pdfPrescriptions,
+    req.params.token,
+    env.CLIENT_URL,
+    `Prescriptions-${safePatientName}.pdf`,
+  );
 });

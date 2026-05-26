@@ -31,7 +31,7 @@ router.get('/credit-notes/:cnId',   roleGuard('ClinicAdmin', 'Receptionist'), ge
 
 router.post(
   '/',
-  roleGuard('ClinicAdmin', 'Receptionist', 'Doctor'),
+  roleGuard('ClinicAdmin', 'Receptionist', 'Doctor', 'Pharmacist'),
   validate(createInvoiceSchema),
   createInvoice
 );
@@ -41,14 +41,14 @@ router.get('/:id', getInvoice);
 
 router.put(
   '/:id',
-  roleGuard('ClinicAdmin', 'Receptionist', 'Doctor'),
+  roleGuard('ClinicAdmin', 'Receptionist', 'Doctor', 'Pharmacist'),
   validate(updateInvoiceSchema),
   updateInvoice
 );
 
 router.post(
   '/:id/payment',
-  roleGuard('ClinicAdmin', 'Receptionist'),
+  roleGuard('ClinicAdmin', 'Receptionist', 'Pharmacist'),
   recordPayment
 );
 

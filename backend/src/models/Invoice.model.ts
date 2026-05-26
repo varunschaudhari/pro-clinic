@@ -21,7 +21,8 @@ export interface IInvoice extends Document {
   clinicId: Types.ObjectId;
   patientId: Types.ObjectId;
   appointmentId?: Types.ObjectId;
-  invoiceNumber: string;  // INV-2024-0001
+  invoiceNumber: string;  // INV-2024-0001 or PH-2024-0001
+  category: 'clinic' | 'pharmacy';
 
   invoiceDate: Date;
   dueDate?: Date;
@@ -102,6 +103,7 @@ const InvoiceSchema = new Schema<IInvoice>(
     patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true, index: true },
     appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment' },
     invoiceNumber: { type: String, required: true },
+    category: { type: String, enum: ['clinic', 'pharmacy'], default: 'clinic', index: true },
 
     invoiceDate: { type: Date, default: Date.now },
     dueDate: { type: Date },

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertCircle, CheckCircle2, XCircle, PhoneOff, FileText, Receipt, Activity, Pencil } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle2, XCircle, PhoneOff, FileText, Receipt, Activity, Pencil, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn, calculateAge } from '@/lib/utils';
 import type { AppointmentItem, AppointmentStatus, UpdateStatusPayload } from '@/services/appointment.service';
@@ -74,6 +74,7 @@ export const TokenCard = ({
   const canComplete = appt.status === 'in_progress' && ['Doctor', 'ClinicAdmin'].includes(userRole);
   const canNoShow   = ['scheduled', 'confirmed'].includes(appt.status);
   const canCancel   = !isTerminal;
+  const canConsult      = ['scheduled', 'confirmed', 'in_progress'].includes(appt.status) && userRole === 'Doctor';
   const canRecordVitals = ['in_progress', 'completed'].includes(appt.status) && ['Doctor', 'ClinicAdmin', 'Receptionist'].includes(userRole);
   const canPrescribe = ['in_progress', 'completed'].includes(appt.status) && ['Doctor', 'ClinicAdmin'].includes(userRole);
   const canBill      = appt.status === 'completed' && ['ClinicAdmin', 'Receptionist'].includes(userRole);
@@ -234,6 +235,17 @@ export const TokenCard = ({
             </div>
           )}
 
+          {canConsult && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/consult/${appt._id}`)}
+              leftIcon={<Stethoscope className="h-3.5 w-3.5" />}
+              className="border-violet-400/40 text-violet-700 hover:bg-violet-50"
+            >
+              Consult
+            </Button>
+          )}
           {canRecordVitals && (
             <Button
               size="sm"

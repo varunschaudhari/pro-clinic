@@ -18,6 +18,7 @@ const itemSchema = z.object({
 export const createInvoiceSchema = z.object({
   patientId:          z.string().regex(objectId, 'Invalid patient ID'),
   appointmentId:      z.string().regex(objectId).optional(),
+  category:           z.enum(['clinic', 'pharmacy']).default('clinic'),
   items:              z.array(itemSchema).min(1, 'At least one item required'),
   isInterState:       z.boolean().default(false),
   clinicGstin:        z.string().trim().optional(),
@@ -41,6 +42,7 @@ export const cancelInvoiceSchema = z.object({
 export const listInvoicesSchema = z.object({
   patientId:     z.string().regex(objectId).optional(),
   appointmentId: z.string().regex(objectId).optional(),
+  category:      z.enum(['clinic', 'pharmacy']).optional(),
   paymentStatus: z.enum(['pending', 'partial', 'paid', 'refunded']).optional(),
   fromDate:      z.string().optional(),
   toDate:        z.string().optional(),
